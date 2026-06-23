@@ -12,6 +12,8 @@ import { sendConversation } from '../api/apiClient.js';
 // Conversation Management
 // ============================================================
 
+let _conversation = null;
+
 function createConversation() {
     return {
         guid: crypto.randomUUID(),
@@ -23,25 +25,44 @@ function createConversation() {
 
 /** Gets the active conversation, creating a new one if needed or over token limit. */
 export async function getActiveConversation() {
-    let conversation = await getConversation();
-
-    if (!conversation || conversation.tokenUsage >= CONFIG.TOKEN_THRESHOLD) {
-        if (conversation) {
-            logger.info(`Token limit reached (${conversation.tokenUsage}). Starting new conversation.`);
-        }
-        conversation = createConversation();
-        await saveConversation(conversation);
+    if (_conversation && _conversation.tokenUsage < CONFIG.TOKEN_THRESHOLD) {
+        return _conversation;
     }
 
-    return conversation;
+    const stored = await getConversation();
+    if (stored && stored.tokenUsage < CONFIG.TOKEN_THRESHOLD) {
+        // Restore from storage, but messages are in-memory (fresh/empty or reconstructed, BCAI tracks history server-side using guid)
+        _conversation = {
+            guid: stored.guid,
+            tokenUsage: stored.tokenUsage,
+            messages: stored.messages || [],
+            created: stored.created || Date.now()
+        };
+    } else {
+        if (stored) {
+            logger.info(`Token limit reached (${stored.tokenUsage}). Starting new conversation.`);
+        }
+        _conversation = createConversation();
+        await saveConversation({
+            guid: _conversation.guid,
+            tokenUsage: _conversation.tokenUsage,
+            created: _conversation.created
+        });
+    }
+
+    return _conversation;
 }
 
 /** Resets the conversation to a clean state. */
 export async function resetConversation() {
-    const conversation = createConversation();
-    await saveConversation(conversation);
+    _conversation = createConversation();
+    await saveConversation({
+        guid: _conversation.guid,
+        tokenUsage: _conversation.tokenUsage,
+        created: _conversation.created
+    });
     logger.info('Conversation reset.');
-    return conversation;
+    return _conversation;
 }
 
 // ============================================================
@@ -86,8 +107,12 @@ export async function sendPrompt(prompt) {
 
     conversation.tokenUsage += estimateTokens(prompt) + estimateTokens(response);
 
-    // Single save at end
-    await saveConversation(conversation);
+    // Save only lightweight metadata to chrome.storage.local
+    await saveConversation({
+        guid: conversation.guid,
+        tokenUsage: conversation.tokenUsage,
+        created: conversation.created
+    });
 
     return response;
 }
