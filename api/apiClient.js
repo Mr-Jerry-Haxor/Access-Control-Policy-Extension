@@ -52,10 +52,12 @@ export async function getACPQuestions(surveyTemplateId) {
 // Data Helpers
 // ============================================================
 
-/** Wraps getACPAnswers and ensures an array is returned. */
 export async function loadAnswers(assessmentId) {
-    const answers = await getACPAnswers(assessmentId);
-    return answers || [];
+    const data = await getACPAnswers(assessmentId);
+    if (!data) return [];
+    if (Array.isArray(data)) return data;
+    if (data.answers && Array.isArray(data.answers)) return data.answers;
+    return [];
 }
 
 /** Wraps getACPQuestions and ensures an array is returned. */

@@ -21,7 +21,8 @@
  
          case "START_VALIDATION":
              runValidationBatch(request.assessments);
-             return true;
+             sendResponse({ started: true });
+             return false;
  
          case "CLEAR_RESULTS":
              clearResults().then(sendResponse);
