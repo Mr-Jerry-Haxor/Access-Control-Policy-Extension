@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ACP Validator</title>
+    <link rel="stylesheet" href="./popup.css">
+</head>
+<body>
+    <div class="container">
+
+        <!-- Header -->
+        <header class="header">
+            <h1>ACP Validator</h1>
+            <span class="version">v1.0.0</span>
+        </header>
+
+        <!-- Dashboard Metrics -->
+        <section class="dashboard">
+            <div class="metric-card">
+                <div class="metric-label">Total</div>
+                <div id="totalAcps" class="metric-value">0</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Pending</div>
+                <div id="pendingAcps" class="metric-value">0</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Completed</div>
+                <div id="completedAcps" class="metric-value">0</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Failed</div>
+                <div id="failedAcps" class="metric-value">0</div>
+            </div>
+        </section>
+
+        <!-- Search & Filter Bar -->
+        <section class="controls-bar">
+            <div class="search-wrapper">
+                <svg class="search-icon" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2"
+                     stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="11" cy="11" r="8"/>
+                    <path d="M21 21l-4.35-4.35"/>
+                </svg>
+                <input type="text"
+                       id="searchInput"
+                       class="search-input"
+                       placeholder="Search ACPs by ID, title, or owner..." />
+            </div>
+            <select id="statusFilter" class="filter-select">
+                <option value="">All Statuses</option>
+                <option value="Pending">Pending</option>
+                <option value="Completed">Completed</option>
+                <option value="Failed">Failed</option>
+            </select>
+        </section>
+
+        <!-- Action Buttons -->
+        <section class="action-bar">
+            <button id="loadBtn" class="btn btn-primary">
+                <svg class="btn-icon" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2"
+                     stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                    <polyline points="7 10 12 15 17 10"/>
+                    <line x1="12" y1="15" x2="12" y2="3"/>
+                </svg>
+                Load ACPs
+            </button>
+            <button id="selectAllBtn" class="btn">
+                <svg class="btn-icon" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2"
+                     stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="9 11 12 14 22 4"/>
+                    <path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/>
+                </svg>
+                Select All
+            </button>
+            <button id="buildContextBtn" class="btn">
+                <svg class="btn-icon" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2"
+                     stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+                    <line x1="8" y1="21" x2="16" y2="21"/>
+                    <line x1="12" y1="17" x2="12" y2="21"/>
+                </svg>
+                Build Contexts
+            </button>
+            <button id="validateBtn" class="btn btn-success">
+                <svg class="btn-icon" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2"
+                     stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M22 11.08V12a10 10 0 11-5.93-9.14"/>
+                    <polyline points="22 4 12 14.01 9 11.01"/>
+                </svg>
+                Validate ACPs
+            </button>
+        </section>
+
+        <!-- Status Bar -->
+        <section class="status-bar">
+            <div id="statusDot" class="status-dot"></div>
+            <span id="statusText" class="status-text">Ready</span>
+            <div id="spinner" class="spinner"></div>
+        </section>
+
+        <!-- Results Table -->
+        <section class="results-section">
+            <div class="results-header">
+                <span></span>
+                <span>ID</span>
+                <span>Title</span>
+                <span>Owner</span>
+                <span>Status</span>
+            </div>
+            <div id="results"></div>
+        </section>
+
+    </div>
+
+    <script type="module" src="./popup.js"></script>
+</body>
+</html>
