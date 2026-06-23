@@ -17,16 +17,19 @@
  document.addEventListener("DOMContentLoaded", initialize);
  
  async function initialize() {
-     allAcps = await getAcps();
-     selectedIds = await getSelectedAcps();
-     filteredAcps = [...allAcps];
- 
-     attachEvents();
-     renderAssessments();
-     populateOwnerFilter();
-     updateSelectedCount();
-     loadExistingResults();
- }
+    // 1. Check prerequisites automatically
+    checkPrereqSessions();
+
+    // 2. Load existing selections
+    selectedIds = await getSelectedAcps();
+
+    // 3. Fetch the primary data URL automatically
+    await refreshData();
+    
+    attachEvents();
+    updateSelectedCount();
+    loadExistingResults();
+}
  
  function attachEvents() {
      $("refreshBtn").addEventListener("click", refreshData);
@@ -87,13 +90,14 @@
  async function refreshData() {
     // Call the Service Worker instead of the local function
     const response = await chrome.runtime.sendMessage({ action: "LOAD_ACPS" });
-    if (response.success) {
-        allAcps = response.data;
+    if (response && response.success) {
+        allAcps = response.data || [];
         // Save to storage if needed
         await saveAcps(allAcps); 
+        populateOwnerFilter();
         applyFilters();
     } else {
-        alert("Failed to load: " + response.error);
+        alert("Failed to load: " + (response ? response.error : "Unknown error"));
     }
  }
  
@@ -141,6 +145,9 @@
      const status = $("assessmentStatusFilter").value;
      if (status) filteredAcps = filteredAcps.filter(a => a.status === status);
      
+     const owner = $("ownerFilter").value;
+     if (owner) filteredAcps = filteredAcps.filter(a => a.owner === owner);
+     
      renderAssessments();
  }
  
@@ -183,11 +190,12 @@
  }
  
  function populateOwnerFilter() {
-     const owners = [...new Set(allAcps.map(a => a.owner))].filter(Boolean);
-     const select = $("ownerFilter");
-     owners.forEach(o => {
-         const opt = document.createElement("option");
-         opt.value = o; opt.textContent = o;
-         select.appendChild(opt);
-     });
- }
+    const owners = [...new Set(allAcps.map(a => a.owner))].filter(Boolean);
+    const select = $("ownerFilter");
+    select.innerHTML = '<option value="">All Owners</option>';
+    owners.forEach(o => {
+        const opt = document.createElement("option");
+        opt.value = o; opt.textContent = o;
+        select.appendChild(opt);
+    });
+}

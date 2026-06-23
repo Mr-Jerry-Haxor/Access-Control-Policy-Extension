@@ -11,9 +11,17 @@ import { replaceTokens, logger } from '../utils/utils.js';
 // Cairo API — ACP Data
 // ============================================================
 
-/** Fetches the full list of ACPs. */
 export async function getACPList() {
-    return fetchJson(URLS.PRIMARY_ACPS);
+    const data = await fetchJson(URLS.PRIMARY_ACPS);
+    if (!Array.isArray(data)) return [];
+    
+    return data.map(item => ({
+        assessmentId: item.incompleteAssessmentId || item.lastAssessmentId || Number(item.assetId),
+        title: item.assetName || 'Unknown Title',
+        owner: item.incompleteInitiatedByName || item.attestName || 'Unknown Owner',
+        status: item.incompleteAssessmentId ? 'Pending' : (item.lastAssessmentId ? 'Completed' : 'Unknown'),
+        raw: item
+    }));
 }
 
 /** Fetches the detail record for a single ACP. */
