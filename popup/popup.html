@@ -60,13 +60,16 @@
         <div class="grid-2">
             <select id="assessmentStatusFilter" class="input">
                 <option value="">All Statuses</option>
-                <option value="Pending">Pending</option>
+                <option value="Incomplete">Incomplete</option>
                 <option value="Completed">Completed</option>
-                <option value="Failed">Failed</option>
             </select>
             <select id="ownerFilter" class="input">
                 <option value="">All Owners</option>
             </select>
+        </div>
+        <div class="grid-2" style="margin-top: 8px;">
+            <input type="date" id="dateStartFilter" class="input" title="Start Date">
+            <input type="date" id="dateEndFilter" class="input" title="End Date">
         </div>
         <button id="clearFiltersBtn" class="btn-secondary" style="width: 100%; margin-top: 4px;">Clear Filters</button>
     </section>

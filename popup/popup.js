@@ -43,6 +43,8 @@
      $("searchInput").addEventListener("input", applyFilters);
      $("assessmentStatusFilter").addEventListener("change", applyFilters);
      $("ownerFilter").addEventListener("change", applyFilters);
+     $("dateStartFilter").addEventListener("change", applyFilters);
+     $("dateEndFilter").addEventListener("change", applyFilters);
  }
  
  // ==========================================
@@ -56,11 +58,18 @@
      filteredAcps.forEach(acp => {
          const row = document.createElement("div");
          row.className = "assessment-row";
+         const dateLabel = acp.status === 'Completed' 
+            ? `Completed: ${acp.date ? new Date(acp.date).toLocaleDateString() : 'N/A'}`
+            : `Initiated: ${acp.date ? new Date(acp.date).toLocaleDateString() : 'N/A'} | Due: ${acp.dueDate ? new Date(acp.dueDate).toLocaleDateString() : 'N/A'}`;
+
          row.innerHTML = `
              <input type="checkbox" class="assessment-checkbox" data-id="${acp.assessmentId}" ${selectedIds.includes(acp.assessmentId) ? "checked" : ""}>
              <div class="assessment-meta">
                  <div class="asset-name">${acp.title || "No Title"}</div>
                  <div class="asset-sub">ID: ${acp.assessmentId} | Owner: ${acp.owner || "N/A"}</div>
+                 <div class="asset-details" style="font-size: 0.85em; color: #666; margin-top: 2px;">
+                     ${dateLabel}
+                 </div>
              </div>
              <div class="status-pill status-${acp.status?.toLowerCase() || 'pending'}">${acp.status || 'Pending'}</div>
          `;
@@ -147,6 +156,24 @@
      
      const owner = $("ownerFilter").value;
      if (owner) filteredAcps = filteredAcps.filter(a => a.owner === owner);
+
+     const startDate = $("dateStartFilter").value ? new Date($("dateStartFilter").value) : null;
+     const endDate = $("dateEndFilter").value ? new Date($("dateEndFilter").value) : null;
+
+     if (startDate || endDate) {
+         filteredAcps = filteredAcps.filter(a => {
+             if (!a.date) return false;
+             const aDate = new Date(a.date);
+             if (startDate && aDate < startDate) return false;
+             if (endDate) {
+                 // Set end date to end of day
+                 const end = new Date(endDate);
+                 end.setHours(23, 59, 59, 999);
+                 if (aDate > end) return false;
+             }
+             return true;
+         });
+     }
      
      renderAssessments();
  }
@@ -155,6 +182,8 @@
      $("searchInput").value = "";
      $("assessmentStatusFilter").value = "";
      $("ownerFilter").value = "";
+     $("dateStartFilter").value = "";
+     $("dateEndFilter").value = "";
      filteredAcps = [...allAcps];
      renderAssessments();
  }
@@ -176,7 +205,7 @@
  }
  
  function handleSelectAll() {
-     selectedIds = selectAll(filteredAcps);
+     selectedIds = filteredAcps.map(a => a.assessmentId);
      saveSelectedAcps(selectedIds);
      renderAssessments();
      updateSelectedCount();
