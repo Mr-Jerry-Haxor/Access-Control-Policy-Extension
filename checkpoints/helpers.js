@@ -1,93 +1,43 @@
-export function pass(
-    checkpointId,
-    message,
-    additionalData = {}
-) {
+// checkpoints/helpers.js
 
-    return {
-
-        checkpointId,
-
-        status: "PASS",
-
-        message,
-
-        ...additionalData
-    };
+export function pass(checkpointId, message, additionalData = {}) {
+    return { checkpointId, status: "PASS", message, ...additionalData };
 }
 
-export function fail(
-    checkpointId,
-    message,
-    additionalData = {}
-) {
-
-    return {
-
-        checkpointId,
-
-        status: "FAIL",
-
-        message,
-
-        ...additionalData
-    };
+export function fail(checkpointId, message, additionalData = {}) {
+    return { checkpointId, status: "FAIL", message, ...additionalData };
 }
 
-export function warning(
-    checkpointId,
-    message,
-    additionalData = {}
-) {
-
-    return {
-
-        checkpointId,
-
-        status: "WARNING",
-
-        message,
-
-        ...additionalData
-    };
+export function warning(checkpointId, message, additionalData = {}) {
+    return { checkpointId, status: "WARNING", message, ...additionalData };
 }
 
-export function getAnswer(
-    context,
-    questionId
-) {
-
-    return (
-        context.answerMap.get(
-            questionId
-        ) || null
-    );
+export function getAnswer(context, questionId) {
+    return context.answerMap.get(questionId) || null;
 }
 
-export function getAnswerText(
-    context,
-    questionId
-) {
+export function getAnswerText(context, questionId) {
+    const answer = getAnswer(context, questionId);
+    if (!answer) return "";
+    return answer.answer || answer.response || answer.value || "";
+}
 
-    const answer =
-        getAnswer(
-            context,
-            questionId
-        );
+// New helpers for ACP1.js
+export function findAssessmentById(summary, id) {
+    if (!summary || !Array.isArray(summary)) return null;
+    return summary.find(item => item.assessmentId === id);
+}
 
-    if (!answer) {
-
-        return "";
+export function collectValuesByKey(obj, key) {
+    const results = [];
+    function traverse(o) {
+        if (o !== null && typeof o === 'object') {
+            for (const k in o) {
+                if (k === key) results.push(o[k]);
+                traverse(o[k]);
+            }
+        }
     }
-
-    return (
-
-        answer.answer ||
-
-        answer.response ||
-
-        answer.value ||
-
-        ""
-    );
+    traverse(obj);
+    return results;
 }

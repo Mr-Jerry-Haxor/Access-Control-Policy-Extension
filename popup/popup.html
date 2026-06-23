@@ -1,125 +1,111 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="utf-8">
     <title>ACP Validator</title>
-    <link rel="stylesheet" href="./popup.css">
+    <link rel="stylesheet" href="popup.css">
 </head>
 <body>
-    <div class="container">
 
-        <!-- Header -->
-        <header class="header">
-            <h1>ACP Validator</h1>
-            <span class="version">v1.0.0</span>
-        </header>
+<div class="app">
+    <header class="header">
+        <div>
+            <div class="eyebrow">Boeing ACP Validator</div>
+            <h1>Validation Dashboard</h1>
+        </div>
+        <div class="header-actions">
+            <span class="version-label">
+                Quality control List version : 2.5
+            </span>
+            <button id="refreshBtn" class="icon-btn">↻</button>
+        </div>
+    </header>
 
-        <!-- Dashboard Metrics -->
-        <section class="dashboard">
-            <div class="metric-card">
-                <div class="metric-label">Total</div>
-                <div id="totalAcps" class="metric-value">0</div>
+    <!-- PREREQUISITES -->
+    <section class="card prerequisites-card">
+        <div class="card-title-row">
+            <span>Prerequisites</span>
+            <div class="prereq-actions">
+                <div class="tooltip-wrap">
+                    <button id="prereqHelpBtn" class="icon-btn small-icon-btn">?</button>
+                    <div class="tooltip-panel" role="tooltip">
+                        <strong>Before validating</strong>
+                        <p>Ensure you are signed in to the following Boeing services:</p>
+                        <ol>
+                            <li>Cairo (cairois.web.boeing.com)</li>
+                            <li>Boeing AI (boeingai.web.boeing.com)</li>
+                        </ol>
+                    </div>
+                </div>
+                <button id="checkPrereqBtn" class="btn-secondary">Check Sessions</button>
             </div>
-            <div class="metric-card">
-                <div class="metric-label">Pending</div>
-                <div id="pendingAcps" class="metric-value">0</div>
+        </div>
+        <div id="prereqSummary" class="prereq-summary">Session checks have not run yet.</div>
+        <div id="prereqList" class="prereq-list">
+            <div class="prereq-item" data-site="cairo">
+                <span class="signal signal-unknown"></span>
+                <div class="prereq-copy"><span>Cairo</span><small>Not checked</small></div>
             </div>
-            <div class="metric-card">
-                <div class="metric-label">Completed</div>
-                <div id="completedAcps" class="metric-value">0</div>
+            <div class="prereq-item" data-site="boeingai">
+                <span class="signal signal-unknown"></span>
+                <div class="prereq-copy"><span>Boeing AI</span><small>Not checked</small></div>
             </div>
-            <div class="metric-card">
-                <div class="metric-label">Failed</div>
-                <div id="failedAcps" class="metric-value">0</div>
-            </div>
-        </section>
+        </div>
+    </section>
 
-        <!-- Search & Filter Bar -->
-        <section class="controls-bar">
-            <div class="search-wrapper">
-                <svg class="search-icon" viewBox="0 0 24 24" fill="none"
-                     stroke="currentColor" stroke-width="2"
-                     stroke-linecap="round" stroke-linejoin="round">
-                    <circle cx="11" cy="11" r="8"/>
-                    <path d="M21 21l-4.35-4.35"/>
-                </svg>
-                <input type="text"
-                       id="searchInput"
-                       class="search-input"
-                       placeholder="Search ACPs by ID, title, or owner..." />
-            </div>
-            <select id="statusFilter" class="filter-select">
+    <!-- FILTERS -->
+    <section class="card">
+        <div class="card-title">ACP Assessment Explorer</div>
+        <input id="searchInput" class="input" placeholder="Search by ID, title, or owner...">
+        <div class="grid-2">
+            <select id="assessmentStatusFilter" class="input">
                 <option value="">All Statuses</option>
                 <option value="Pending">Pending</option>
                 <option value="Completed">Completed</option>
                 <option value="Failed">Failed</option>
             </select>
-        </section>
+            <select id="ownerFilter" class="input">
+                <option value="">All Owners</option>
+            </select>
+        </div>
+        <button id="clearFiltersBtn" class="btn-secondary" style="width: 100%; margin-top: 4px;">Clear Filters</button>
+    </section>
 
-        <!-- Action Buttons -->
-        <section class="action-bar">
-            <button id="loadBtn" class="btn btn-primary">
-                <svg class="btn-icon" viewBox="0 0 24 24" fill="none"
-                     stroke="currentColor" stroke-width="2"
-                     stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
-                    <polyline points="7 10 12 15 17 10"/>
-                    <line x1="12" y1="15" x2="12" y2="3"/>
-                </svg>
-                Load ACPs
-            </button>
-            <button id="selectAllBtn" class="btn">
-                <svg class="btn-icon" viewBox="0 0 24 24" fill="none"
-                     stroke="currentColor" stroke-width="2"
-                     stroke-linecap="round" stroke-linejoin="round">
-                    <polyline points="9 11 12 14 22 4"/>
-                    <path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/>
-                </svg>
-                Select All
-            </button>
-            <button id="buildContextBtn" class="btn">
-                <svg class="btn-icon" viewBox="0 0 24 24" fill="none"
-                     stroke="currentColor" stroke-width="2"
-                     stroke-linecap="round" stroke-linejoin="round">
-                    <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
-                    <line x1="8" y1="21" x2="16" y2="21"/>
-                    <line x1="12" y1="17" x2="12" y2="21"/>
-                </svg>
-                Build Contexts
-            </button>
-            <button id="validateBtn" class="btn btn-success">
-                <svg class="btn-icon" viewBox="0 0 24 24" fill="none"
-                     stroke="currentColor" stroke-width="2"
-                     stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M22 11.08V12a10 10 0 11-5.93-9.14"/>
-                    <polyline points="22 4 12 14.01 9 11.01"/>
-                </svg>
-                Validate ACPs
-            </button>
-        </section>
+    <!-- SELECTION -->
+    <section class="card">
+        <div class="card-title-row">
+            <span>Assessments</span>
+            <span id="selectedCount" class="badge">0 Selected</span>
+        </div>
+        <div class="selection-actions">
+            <button id="selectAllBtn" class="btn-secondary">Select All</button>
+            <button id="clearSelectionBtn" class="btn-secondary">Clear</button>
+        </div>
+        <div id="assessmentList" class="assessment-list"></div>
+    </section>
 
-        <!-- Status Bar -->
-        <section class="status-bar">
-            <div id="statusDot" class="status-dot"></div>
-            <span id="statusText" class="status-text">Ready</span>
-            <div id="spinner" class="spinner"></div>
-        </section>
+    <!-- VALIDATION -->
+    <section class="card">
+        <button id="validateBtn" class="btn-primary">Validate Selected</button>
+        <button id="cancelBtn" class="btn-danger hidden">Cancel Validation</button>
+        <div id="progressContainer" class="hidden">
+            <div id="progressText" class="progress-text">Starting...</div>
+            <div class="progress-bar"><div id="progressFill" class="progress-fill"></div></div>
+        </div>
+    </section>
 
-        <!-- Results Table -->
-        <section class="results-section">
-            <div class="results-header">
-                <span></span>
-                <span>ID</span>
-                <span>Title</span>
-                <span>Owner</span>
-                <span>Status</span>
+    <!-- RESULTS -->
+    <section class="card">
+        <div class="card-title-row">
+            <span>Validation Results</span>
+            <div class="results-actions">
+                <button id="clearResultsBtn" class="btn-secondary hidden">Clear Results</button>
             </div>
-            <div id="results"></div>
-        </section>
+        </div>
+        <div id="resultsContainer" class="results-container"></div>
+    </section>
+</div>
 
-    </div>
-
-    <script type="module" src="./popup.js"></script>
+<script type="module" src="popup.js"></script>
 </body>
 </html>

@@ -41,8 +41,6 @@ import ACP25 from '../checkpoints/ACP25.js';
 import ACP26 from '../checkpoints/ACP26.js';
 import ACP27 from '../checkpoints/ACP27.js';
 import ACP28 from '../checkpoints/ACP28.js';
-import ACP29 from '../checkpoints/ACP29.js';
-import ACP30 from '../checkpoints/ACP30.js';
 
 // ============================================================
 // Checkpoint Registry
@@ -51,7 +49,7 @@ import ACP30 from '../checkpoints/ACP30.js';
 const ALL = [
     ACP1, ACP2, ACP3, ACP4, ACP5, ACP6, ACP7, ACP8, ACP9, ACP10,
     ACP11, ACP12, ACP13, ACP14, ACP15, ACP16, ACP17, ACP18, ACP19, ACP20,
-    ACP21, ACP22, ACP23, ACP24, ACP25, ACP26, ACP27, ACP28, ACP29, ACP30
+    ACP21, ACP22, ACP23, ACP24, ACP25, ACP26, ACP27, ACP28
 ];
 
 // Filter to only checkpoints that have been implemented (have an `id` property)

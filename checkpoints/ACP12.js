@@ -24,7 +24,7 @@ Return JSON only:
     "status": "PASS|FAIL|WARNING",
     "reason": "..."
 }
-\`;
+`;
     },
     async validate(context) {
         return {

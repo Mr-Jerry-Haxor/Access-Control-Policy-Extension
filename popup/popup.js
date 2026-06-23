@@ -1,217 +1,193 @@
 /**
  * popup/popup.js
- * Main entry point for the ACP Validator extension popup.
+ * Integrated ACP Validator - UI Logic
  */
 
-import { loadAcps, validateAssessments, selectAll, toggleSelection, getSelectedIds } from '../core/assessment.js';
-import { buildContexts } from '../core/context.js';
-import { searchAcps, filterAcps, calculateMetrics, renderDashboard } from './popupUtils.js';
-
-// ============================================================
-// State
-// ============================================================
-
-let allAcps = [];
-
-// ============================================================
-// DOM References
-// ============================================================
-
-const $ = id => document.getElementById(id);
-
-const statusDot  = $('statusDot');
-const statusText = $('statusText');
-const spinner    = $('spinner');
-const results    = $('results');
-const searchInput  = $('searchInput');
-const statusFilter = $('statusFilter');
-
-// ============================================================
-// Status Bar Helpers
-// ============================================================
-
-function setStatus(message, state = 'idle') {
-    statusText.textContent = message;
-
-    statusDot.className = 'status-dot';
-    spinner.className   = 'spinner';
-
-    if (state === 'loading') {
-        statusDot.classList.add('loading');
-        spinner.classList.add('active');
-    } else if (state === 'error') {
-        statusDot.classList.add('error');
+ import { getAcps, saveAcps, getSelectedAcps, saveSelectedAcps, getAllResults, clearResults } from "../storage/storage.js";
+ import { loadAcps, toggleSelection, selectAll, clearSelection, getSelectedIds } from "../core/assessment.js";
+ import { buildContexts } from "../core/context.js";
+ import { filterAcps, searchAcps } from "./popupUtils.js";
+ 
+ let allAcps = [];
+ let filteredAcps = [];
+ let selectedIds = [];
+ 
+ const $ = id => document.getElementById(id);
+ 
+ document.addEventListener("DOMContentLoaded", initialize);
+ 
+ async function initialize() {
+     allAcps = await getAcps();
+     selectedIds = await getSelectedAcps();
+     filteredAcps = [...allAcps];
+ 
+     attachEvents();
+     renderAssessments();
+     populateOwnerFilter();
+     updateSelectedCount();
+     loadExistingResults();
+ }
+ 
+ function attachEvents() {
+     $("refreshBtn").addEventListener("click", refreshData);
+     $("checkPrereqBtn").addEventListener("click", checkPrereqSessions);
+     $("selectAllBtn").addEventListener("click", handleSelectAll);
+     $("clearSelectionBtn").addEventListener("click", handleClearSelection);
+     $("validateBtn").addEventListener("click", startValidation);
+     $("clearFiltersBtn").addEventListener("click", clearFilters);
+     $("clearResultsBtn").addEventListener("click", clearResultsAndUI);
+     
+     $("searchInput").addEventListener("input", applyFilters);
+     $("assessmentStatusFilter").addEventListener("change", applyFilters);
+     $("ownerFilter").addEventListener("change", applyFilters);
+ }
+ 
+ // ==========================================
+ // RENDERERS
+ // ==========================================
+ 
+ function renderAssessments() {
+     const container = $("assessmentList");
+     container.innerHTML = "";
+ 
+     filteredAcps.forEach(acp => {
+         const row = document.createElement("div");
+         row.className = "assessment-row";
+         row.innerHTML = `
+             <input type="checkbox" class="assessment-checkbox" data-id="${acp.assessmentId}" ${selectedIds.includes(acp.assessmentId) ? "checked" : ""}>
+             <div class="assessment-meta">
+                 <div class="asset-name">${acp.title || "No Title"}</div>
+                 <div class="asset-sub">ID: ${acp.assessmentId} | Owner: ${acp.owner || "N/A"}</div>
+             </div>
+             <div class="status-pill status-${acp.status?.toLowerCase() || 'pending'}">${acp.status || 'Pending'}</div>
+         `;
+         container.appendChild(row);
+     });
+ 
+     // Re-bind checkboxes
+     document.querySelectorAll(".assessment-checkbox").forEach(cb => {
+         cb.addEventListener("change", (e) => {
+             const id = Number(e.target.dataset.id);
+             if (e.target.checked) selectedIds.push(id);
+             else selectedIds = selectedIds.filter(x => x !== id);
+             saveSelectedAcps(selectedIds);
+             updateSelectedCount();
+         });
+     });
+ }
+ 
+ function updateSelectedCount() {
+     $("selectedCount").textContent = `${selectedIds.length} Selected`;
+ }
+ 
+ // ==========================================
+ // ACTIONS
+ // ==========================================
+ 
+ async function refreshData() {
+    // Call the Service Worker instead of the local function
+    const response = await chrome.runtime.sendMessage({ action: "LOAD_ACPS" });
+    if (response.success) {
+        allAcps = response.data;
+        // Save to storage if needed
+        await saveAcps(allAcps); 
+        applyFilters();
+    } else {
+        alert("Failed to load: " + response.error);
     }
-    // 'idle' = default green pulse, no changes needed
-}
-
-function setLoading(message) { setStatus(message, 'loading'); }
-function setIdle(message)    { setStatus(message, 'idle'); }
-function setError(message)   { setStatus(message, 'error'); }
-
-// ============================================================
-// Load ACPs
-// ============================================================
-
-$('loadBtn').addEventListener('click', async () => {
-    try {
-        setLoading('Loading ACPs...');
-        allAcps = await loadAcps();
-        setIdle(`${allAcps.length} ACPs loaded`);
-        render();
-    } catch (err) {
-        console.error('[ACP] Load failed:', err);
-        setError(err.message);
-    }
-});
-
-// ============================================================
-// Select All
-// ============================================================
-
-$('selectAllBtn').addEventListener('click', () => {
-    if (!allAcps.length) {
-        setError('Load ACPs first.');
-        return;
-    }
-    selectAll(allAcps);
-    render();
-    setIdle(`${allAcps.length} ACPs selected`);
-});
-
-// ============================================================
-// Build Contexts
-// ============================================================
-
-$('buildContextBtn').addEventListener('click', async () => {
-    if (!allAcps.length) {
-        setError('Load ACPs first.');
-        return;
-    }
-    try {
-        setLoading('Building contexts...');
-        const targets = getTargetAcps();
-        const contexts = await buildContexts(targets);
-        setIdle(`${contexts.length} contexts built`);
-    } catch (err) {
-        console.error('[ACP] Context build failed:', err);
-        setError(err.message);
-    }
-});
-
-// ============================================================
-// Validate ACPs
-// ============================================================
-
-$('validateBtn').addEventListener('click', async () => {
-    if (!allAcps.length) {
-        setError('Load ACPs first.');
-        return;
-    }
-    try {
-        setLoading('Building contexts...');
-        const targets  = getTargetAcps();
-        const contexts = await buildContexts(targets);
-
-        setLoading(`Validating ${contexts.length} assessments...`);
-        const validationResults = await validateAssessments(contexts);
-
-        setIdle(`${validationResults.length} assessments validated`);
-        console.info('[ACP] Validation results:', validationResults);
-
-    } catch (err) {
-        console.error('[ACP] Validation failed:', err);
-        setError(err.message);
-    }
-});
-
-// ============================================================
-// Search & Filter
-// ============================================================
-
-searchInput.addEventListener('input', render);
-statusFilter.addEventListener('change', render);
-
-// ============================================================
-// Render Pipeline
-// ============================================================
-
-function getTargetAcps() {
-    const ids = getSelectedIds();
-    return ids.length > 0
-        ? allAcps.filter(acp => ids.includes(acp.assessmentId))
-        : allAcps;
-}
-
-function render() {
-    let filtered = searchAcps(allAcps, searchInput.value);
-    filtered = filterAcps(filtered, { status: statusFilter.value });
-
-    const metrics = calculateMetrics(filtered);
-    renderDashboard(metrics);
-    renderTable(filtered);
-}
-
-function renderTable(acps) {
-    results.innerHTML = '';
-
-    if (!acps.length) {
-        results.innerHTML = `
-            <div class="empty-state">
-                <svg class="empty-icon" viewBox="0 0 24 24" fill="none"
-                     stroke="currentColor" stroke-width="1.5"
-                     stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/>
-                    <rect x="9" y="3" width="6" height="4" rx="1" ry="1"/>
-                </svg>
-                <p>${allAcps.length === 0 ? 'No ACPs loaded yet.' : 'No ACPs match your filters.'}</p>
-                <span class="hint">${allAcps.length === 0 ? 'Click "Load ACPs" to get started.' : 'Try clearing the search or filter.'}</span>
-            </div>`;
-        return;
-    }
-
-    const fragment = document.createDocumentFragment();
-
-    acps.forEach((acp, i) => {
-        const row = document.createElement('div');
-        row.className = 'acp-row';
-        row.style.animationDelay = `${i * 0.02}s`;
-
-        const statusClass = getStatusClass(acp.status);
-        row.innerHTML = `
-            <input type="checkbox"
-                   class="acp-checkbox"
-                   data-id="${escapeHtml(String(acp.assessmentId))}"
-                   id="chk-${escapeHtml(String(acp.assessmentId))}">
-            <div class="acp-id">${escapeHtml(String(acp.assessmentId))}</div>
-            <div class="acp-title">${escapeHtml(acp.title || '—')}</div>
-            <div class="acp-owner">${escapeHtml(acp.owner || '—')}</div>
-            <div class="acp-status ${statusClass}">${escapeHtml(acp.status || 'Unknown')}</div>`;
-
-        row.querySelector('.acp-checkbox').addEventListener('change', () => {
-            toggleSelection(acp.assessmentId);
-        });
-
-        fragment.appendChild(row);
-    });
-
-    results.appendChild(fragment);
-}
-
-function getStatusClass(status) {
-    switch (status) {
-        case 'Pending':   return 'status-pending';
-        case 'Completed': return 'status-completed';
-        case 'Failed':    return 'status-failed';
-        default:          return '';
-    }
-}
-
-function escapeHtml(str) {
-    return str
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#039;');
-}
+ }
+ 
+ async function startValidation() {
+     const selected = allAcps.filter(x => selectedIds.includes(x.assessmentId));
+     if (!selected.length) return alert("Select assessments first.");
+ 
+     $("progressContainer").classList.remove("hidden");
+     $("validateBtn").classList.add("hidden");
+     $("cancelBtn").classList.remove("hidden");
+ 
+     // Communicate with Background
+     await chrome.runtime.sendMessage({ action: "START_VALIDATION", assessments: selected });
+ }
+ 
+ async function loadExistingResults() {
+     const results = await getAllResults();
+     if (Object.keys(results).length > 0) {
+         renderResults(results);
+     }
+ }
+ 
+ function renderResults(resultsMap) {
+     const container = $("resultsContainer");
+     container.innerHTML = "";
+     $("clearResultsBtn").classList.remove("hidden");
+ 
+     Object.entries(resultsMap).forEach(([id, data]) => {
+         const card = document.createElement("div");
+         card.className = "result-card";
+         card.innerHTML = `
+             <div class="result-header"><strong>Assessment ${id}</strong></div>
+             <div class="result-meta">${data.results.length} checkpoints processed.</div>
+         `;
+         container.appendChild(card);
+     });
+ }
+ 
+ // ==========================================
+ // HELPERS
+ // ==========================================
+ 
+ function applyFilters() {
+     filteredAcps = searchAcps(allAcps, $("searchInput").value);
+     const status = $("assessmentStatusFilter").value;
+     if (status) filteredAcps = filteredAcps.filter(a => a.status === status);
+     
+     renderAssessments();
+ }
+ 
+ function clearFilters() {
+     $("searchInput").value = "";
+     $("assessmentStatusFilter").value = "";
+     $("ownerFilter").value = "";
+     filteredAcps = [...allAcps];
+     renderAssessments();
+ }
+ 
+ async function clearResultsAndUI() {
+     await clearResults();
+     $("resultsContainer").innerHTML = "";
+     $("clearResultsBtn").classList.add("hidden");
+ }
+ 
+ async function checkPrereqSessions() {
+     const resp = await chrome.runtime.sendMessage({ action: "CHECK_PREREQUISITES" });
+     if (resp?.prerequisites) {
+         resp.prerequisites.checks.forEach(check => {
+             const el = document.querySelector(`.prereq-item[data-site="${check.id}"] .signal`);
+             if (el) el.className = `signal ${check.passed ? "signal-pass" : "signal-fail"}`;
+         });
+     }
+ }
+ 
+ function handleSelectAll() {
+     selectedIds = selectAll(filteredAcps);
+     saveSelectedAcps(selectedIds);
+     renderAssessments();
+     updateSelectedCount();
+ }
+ 
+ function handleClearSelection() {
+     selectedIds = [];
+     saveSelectedAcps(selectedIds);
+     renderAssessments();
+     updateSelectedCount();
+ }
+ 
+ function populateOwnerFilter() {
+     const owners = [...new Set(allAcps.map(a => a.owner))].filter(Boolean);
+     const select = $("ownerFilter");
+     owners.forEach(o => {
+         const opt = document.createElement("option");
+         opt.value = o; opt.textContent = o;
+         select.appendChild(opt);
+     });
+ }

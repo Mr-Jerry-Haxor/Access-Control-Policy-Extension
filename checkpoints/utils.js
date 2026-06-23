@@ -3,4 +3,15 @@
  * Re-exports all helpers from helpers.js for backward compatibility.
  * Checkpoint files import from "./utils.js" — this bridges that path.
  */
-export { pass, fail, warning, getAnswer, getAnswerText } from './helpers.js';
+/**
+ * checkpoints/utils.js
+ */
+ export { 
+    pass, 
+    fail, 
+    warning, 
+    getAnswer, 
+    getAnswerText,
+    findAssessmentById,  // Add this
+    collectValuesByKey   // Add this
+} from './helpers.js';
