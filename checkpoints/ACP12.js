@@ -1,25 +1,36 @@
-/**
- * checkpoints/ACP12.js
- * TODO: Implement checkpoint ACP12.
- * Each checkpoint validates a specific ACP requirement.
- */
+import { getAnswerText } from "./utils.js";
 
 const ACP12 = {
+    id: "ACP12",
+    name: "ACP12 Validation",
+    category: "General",
+    type: "AI",
+    buildPrompt(context) {
+        const ans_ACP_AR1 = getAnswerText(context, "ACP-AR1");
 
-    id: 'ACP12',
+        return `
+Validate ACP12.
 
-    name: 'Checkpoint 12',
+Requirement:
+"ACP-AR1:
+Checkpoint: Do all of the roles have at least one Access Level listed as something other than 'None'? 
+Note: All of the Access Levels(Database, Server, and Application) cannot be answered 'None'.  No access could be provisioned for a role with no access to the Database, Server, or Application."
 
-    category: 'General',
+Answer context:
+ACP-AR1 Answer: \${ans_ACP_AR1}
 
-    type: 'RULE',
-
+Return JSON only:
+{
+    "status": "PASS|FAIL|WARNING",
+    "reason": "..."
+}
+\`;
+    },
     async validate(context) {
-        // TODO: Implement ACP12 validation logic
         return {
-            checkpointId: 'ACP12',
-            status: 'PASS',
-            message: 'Not yet implemented.'
+            checkpointId: this.id,
+            type: "AI",
+            prompt: this.buildPrompt(context)
         };
     }
 };

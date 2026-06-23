@@ -1,25 +1,37 @@
-/**
- * checkpoints/ACP7.js
- * TODO: Implement checkpoint ACP7.
- * Each checkpoint validates a specific ACP requirement.
- */
+import { getAnswerText } from "./utils.js";
 
 const ACP7 = {
+    id: "ACP7",
+    name: "ACP7 Validation",
+    category: "General",
+    type: "AI",
+    buildPrompt(context) {
+        // Gather answers from context
+        const ans_ACP_AR1 = getAnswerText(context, "ACP-AR1");
 
-    id: 'ACP7',
+        return `
+Validate ACP7.
 
-    name: 'Checkpoint 7',
+Requirement:
+"ACP-AR1:
+Checkpoint: Is there an application support role documented in the ACP if the application has the ""Tier 2/3 Technical Support"" role populated in ESATS?
+Notes: If there isn't a Tier 2/3 Technical Support roles populated in ESATS, answer ""N/A"""
 
-    category: 'General',
+Answer context:
+ACP-AR1 Answer: \${ans_ACP_AR1}
 
-    type: 'RULE',
-
+Return JSON only:
+{
+    "status": "PASS|FAIL|WARNING",
+    "reason": "..."
+}
+`;
+    },
     async validate(context) {
-        // TODO: Implement ACP7 validation logic
         return {
-            checkpointId: 'ACP7',
-            status: 'PASS',
-            message: 'Not yet implemented.'
+            checkpointId: this.id,
+            type: "AI",
+            prompt: this.buildPrompt(context)
         };
     }
 };

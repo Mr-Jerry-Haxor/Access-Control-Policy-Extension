@@ -1,25 +1,40 @@
-/**
- * checkpoints/ACP25.js
- * TODO: Implement checkpoint ACP25.
- * Each checkpoint validates a specific ACP requirement.
- */
+import { getAnswerText } from "./utils.js";
 
 const ACP25 = {
+    id: "ACP25",
+    name: "ACP25 Validation",
+    category: "General",
+    type: "AI",
+    buildPrompt(context) {
+        // Gather answers from context
+        const ans_ACP_RAP1 = getAnswerText(context, "ACP-RAP1");
 
-    id: 'ACP25',
+        return `
+Validate ACP25.
 
-    name: 'Checkpoint 25',
+Requirement:
+"ACP-RAP1: Describe your request, modify, removal\deactivate process.
+Checkpoint: Is the Account Removal process fully documented with step‑by‑step procedures that include clear details for every role?
+Note: Pass/Fail element checklist(all must be Yes to Pass this checkpoint)
+• Who — Each step names the role(s) or position(s) that perform the task.
+• What — Each step describes the specific action or decision to be taken.
+• How — Each step describes the method/tool/workflow used. (e.g: ticket ID, automation, MARS/IDAP, etc.)"
 
-    category: 'General',
+Answer context:
+ACP-RAP1 Answer: \${ans_ACP_RAP1}
 
-    type: 'RULE',
-
+Return JSON only:
+{
+    "status": "PASS|FAIL|WARNING",
+    "reason": "..."
+}
+`;
+    },
     async validate(context) {
-        // TODO: Implement ACP25 validation logic
         return {
-            checkpointId: 'ACP25',
-            status: 'PASS',
-            message: 'Not yet implemented.'
+            checkpointId: this.id,
+            type: "AI",
+            prompt: this.buildPrompt(context)
         };
     }
 };

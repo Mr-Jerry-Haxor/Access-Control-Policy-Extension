@@ -1,25 +1,36 @@
-/**
- * checkpoints/ACP15.js
- * TODO: Implement checkpoint ACP15.
- * Each checkpoint validates a specific ACP requirement.
- */
+import { getAnswerText } from "./utils.js";
 
 const ACP15 = {
+    id: "ACP15",
+    name: "ACP15 Validation",
+    category: "General",
+    type: "AI",
+    buildPrompt(context) {
+        // Gather answers from context
+        const ans_ACP_NPI1 = getAnswerText(context, "ACP-NPI1");
 
-    id: 'ACP15',
+        return `
+Validate ACP15.
 
-    name: 'Checkpoint 15',
+Requirement:
+"ACP-NPI1:
+Checkpoint: If an application is an internal web application or has a database, is there at least one non-person identifier account listed in the ACP? (If application isn't an internal web application or doesn't have a database, answer ""N/A"" to this checkpoint)"
 
-    category: 'General',
+Answer context:
+ACP-NPI1 Answer: \${ans_ACP_NPI1}
 
-    type: 'RULE',
-
+Return JSON only:
+{
+    "status": "PASS|FAIL|WARNING",
+    "reason": "..."
+}
+`;
+    },
     async validate(context) {
-        // TODO: Implement ACP15 validation logic
         return {
-            checkpointId: 'ACP15',
-            status: 'PASS',
-            message: 'Not yet implemented.'
+            checkpointId: this.id,
+            type: "AI",
+            prompt: this.buildPrompt(context)
         };
     }
 };

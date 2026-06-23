@@ -1,25 +1,36 @@
-/**
- * checkpoints/ACP6.js
- * TODO: Implement checkpoint ACP6.
- * Each checkpoint validates a specific ACP requirement.
- */
+import { getAnswerText } from "./utils.js";
 
 const ACP6 = {
+    id: "ACP6",
+    name: "ACP6 Validation",
+    category: "General",
+    type: "AI",
+    buildPrompt(context) {
+        // Gather answers from context
+        const ans_ACP_AR1 = getAnswerText(context, "ACP-AR1");
 
-    id: 'ACP6',
+        return `
+Validate ACP6.
 
-    name: 'Checkpoint 6',
+Requirement:
+"ACP-AR1:
+Checkpoint: If the application has a database listed in CMDB(and is not identified as cloud/container application), does the ""Person Type"" in the DBA role match the Person Type for any DBA associated with the application in CMDB?"
 
-    category: 'General',
+Answer context:
+ACP-AR1 Answer: \${ans_ACP_AR1}
 
-    type: 'RULE',
-
+Return JSON only:
+{
+    "status": "PASS|FAIL|WARNING",
+    "reason": "..."
+}
+`;
+    },
     async validate(context) {
-        // TODO: Implement ACP6 validation logic
         return {
-            checkpointId: 'ACP6',
-            status: 'PASS',
-            message: 'Not yet implemented.'
+            checkpointId: this.id,
+            type: "AI",
+            prompt: this.buildPrompt(context)
         };
     }
 };

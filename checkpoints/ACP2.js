@@ -1,70 +1,36 @@
-import {
-    pass,
-    fail,
-    getAnswerText
-}
-from "./utils.js";
+import { getAnswerText } from "./utils.js";
 
 const ACP2 = {
-
     id: "ACP2",
-
-    name: "Application Functionality",
-
-    category: "Description",
-
+    name: "ACP2 Validation",
+    category: "General",
     type: "AI",
-
     buildPrompt(context) {
-
-        const answer =
-
-            getAnswerText(
-                context,
-                "ACP2"
-            );
+        // Gather answers from context
+        const ans_ACP_AA1 = getAnswerText(context, "ACP-AA1");
 
         return `
 Validate ACP2.
 
 Requirement:
+"ACP-AA1: Describe the functionality of the application and the business functions it performs.
+Checkpoint: Is there a statement of the functionality of the application?"
 
-Determine if the response clearly
-describes:
-
-1. Application functionality.
-
-2. Business functions.
-
-Answer:
-
-${answer}
+Answer context:
+ACP-AA1 Answer: \${ans_ACP_AA1}
 
 Return JSON only:
-
 {
-    "status":"PASS|FAIL",
-    "reason":"..."
+    "status": "PASS|FAIL|WARNING",
+    "reason": "..."
 }
 `;
     },
-
     async validate(context) {
-
-        const prompt =
-            this.buildPrompt(
-                context
-            );
-
         return {
-
-            checkpointId:
-                this.id,
-
-            type:
-                "AI",
-
-            prompt
+            checkpointId: this.id,
+            type: "AI",
+            prompt: this.buildPrompt(context)
         };
     }
 };

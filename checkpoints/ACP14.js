@@ -1,25 +1,38 @@
-/**
- * checkpoints/ACP14.js
- * TODO: Implement checkpoint ACP14.
- * Each checkpoint validates a specific ACP requirement.
- */
+import { getAnswerText } from "./utils.js";
 
 const ACP14 = {
+    id: "ACP14",
+    name: "ACP14 Validation",
+    category: "General",
+    type: "AI",
+    buildPrompt(context) {
+        // Gather answers from context
+        const ans_ACP_NPI1 = getAnswerText(context, "ACP-NPI1");
+        const ans_CSIR_SvcAcct = getAnswerText(context, "CSIR-SvcAcct");
 
-    id: 'ACP14',
+        return `
+Validate ACP14.
 
-    name: 'Checkpoint 14',
+Requirement:
+"ACP-NPI1:
+Checkpoint: Does the Non-person identifier(ACP-NPI1) in ACP match with the (CSIR-SvcAcct) in Risk Profiler?"
 
-    category: 'General',
+Answer context:
+ACP-NPI1 Answer: \${ans_ACP_NPI1}
+CSIR-SvcAcct Answer: \${ans_CSIR_SvcAcct}
 
-    type: 'RULE',
-
+Return JSON only:
+{
+    "status": "PASS|FAIL|WARNING",
+    "reason": "..."
+}
+`;
+    },
     async validate(context) {
-        // TODO: Implement ACP14 validation logic
         return {
-            checkpointId: 'ACP14',
-            status: 'PASS',
-            message: 'Not yet implemented.'
+            checkpointId: this.id,
+            type: "AI",
+            prompt: this.buildPrompt(context)
         };
     }
 };

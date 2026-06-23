@@ -1,25 +1,40 @@
-/**
- * checkpoints/ACP8.js
- * TODO: Implement checkpoint ACP8.
- * Each checkpoint validates a specific ACP requirement.
- */
+import { getAnswerText } from "./utils.js";
 
 const ACP8 = {
+    id: "ACP8",
+    name: "ACP8 Validation",
+    category: "General",
+    type: "AI",
+    buildPrompt(context) {
+        // Gather answers from context
+        const ans_ACP_AR1 = getAnswerText(context, "ACP-AR1");
 
-    id: 'ACP8',
+        return `
+Validate ACP8.
 
-    name: 'Checkpoint 8',
+Requirement:
+"ACP-AR1:
+Checkpoint: Does each access role listed in the ACP have responsibilities documented for the actions performed by the role?(The responsibilities must state work tasks performed.)
+Notes: 
+• Documented actions must be comensurate to the role title.
+• If people are separated by different roles in ESATS, they should be separate roles in the ACP(for example Developer and Tier 2/3 support.)
+• If there is any information in the Additional Information section of the ACP explaining the absence of responsibilities by the application team's request, answer “N/A""."
 
-    category: 'General',
+Answer context:
+ACP-AR1 Answer: \${ans_ACP_AR1}
 
-    type: 'RULE',
-
+Return JSON only:
+{
+    "status": "PASS|FAIL|WARNING",
+    "reason": "..."
+}
+`;
+    },
     async validate(context) {
-        // TODO: Implement ACP8 validation logic
         return {
-            checkpointId: 'ACP8',
-            status: 'PASS',
-            message: 'Not yet implemented.'
+            checkpointId: this.id,
+            type: "AI",
+            prompt: this.buildPrompt(context)
         };
     }
 };

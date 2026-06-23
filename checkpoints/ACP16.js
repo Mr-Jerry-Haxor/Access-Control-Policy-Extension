@@ -1,25 +1,37 @@
-/**
- * checkpoints/ACP16.js
- * TODO: Implement checkpoint ACP16.
- * Each checkpoint validates a specific ACP requirement.
- */
+import { getAnswerText } from "./utils.js";
 
 const ACP16 = {
+    id: "ACP16",
+    name: "ACP16 Validation",
+    category: "General",
+    type: "AI",
+    buildPrompt(context) {
+        // Gather answers from context
+        const ans_ACP_NPI1 = getAnswerText(context, "ACP-NPI1");
 
-    id: 'ACP16',
+        return `
+Validate ACP16.
 
-    name: 'Checkpoint 16',
+Requirement:
+"ACP-NPI1:
+Checkpoint: Do all Non-Person Identifiers describe the functions that the non-person identifiers perform in the ""Function"" section of the Non-Person Identifiers table?
+Note: The description must include an action that each of the non-person identifiers perform."
 
-    category: 'General',
+Answer context:
+ACP-NPI1 Answer: \${ans_ACP_NPI1}
 
-    type: 'RULE',
-
+Return JSON only:
+{
+    "status": "PASS|FAIL|WARNING",
+    "reason": "..."
+}
+`;
+    },
     async validate(context) {
-        // TODO: Implement ACP16 validation logic
         return {
-            checkpointId: 'ACP16',
-            status: 'PASS',
-            message: 'Not yet implemented.'
+            checkpointId: this.id,
+            type: "AI",
+            prompt: this.buildPrompt(context)
         };
     }
 };

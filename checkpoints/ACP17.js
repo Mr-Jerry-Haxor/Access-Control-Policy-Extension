@@ -1,25 +1,36 @@
-/**
- * checkpoints/ACP17.js
- * TODO: Implement checkpoint ACP17.
- * Each checkpoint validates a specific ACP requirement.
- */
+import { getAnswerText } from "./utils.js";
 
 const ACP17 = {
+    id: "ACP17",
+    name: "ACP17 Validation",
+    category: "General",
+    type: "AI",
+    buildPrompt(context) {
+        // Gather answers from context
+        const ans_ACP_NPI1 = getAnswerText(context, "ACP-NPI1");
 
-    id: 'ACP17',
+        return `
+Validate ACP17.
 
-    name: 'Checkpoint 17',
+Requirement:
+"ACP-NPI1:
+Checkpoint: Were the Non-Person Account Owners active employees at the time of ACP review?"
 
-    category: 'General',
+Answer context:
+ACP-NPI1 Answer: \${ans_ACP_NPI1}
 
-    type: 'RULE',
-
+Return JSON only:
+{
+    "status": "PASS|FAIL|WARNING",
+    "reason": "..."
+}
+`;
+    },
     async validate(context) {
-        // TODO: Implement ACP17 validation logic
         return {
-            checkpointId: 'ACP17',
-            status: 'PASS',
-            message: 'Not yet implemented.'
+            checkpointId: this.id,
+            type: "AI",
+            prompt: this.buildPrompt(context)
         };
     }
 };

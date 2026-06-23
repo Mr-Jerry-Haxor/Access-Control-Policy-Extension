@@ -1,25 +1,34 @@
-/**
- * checkpoints/ACP18.js
- * TODO: Implement checkpoint ACP18.
- * Each checkpoint validates a specific ACP requirement.
- */
+import { getAnswerText } from "./utils.js";
 
 const ACP18 = {
+    id: "ACP18",
+    name: "ACP18 Validation",
+    category: "General",
+    type: "AI",
+    buildPrompt(context) {
+        // Gather answers from context
 
-    id: 'ACP18',
+        return `
+Validate ACP18.
 
-    name: 'Checkpoint 18',
+Requirement:
+Checkpoint: If this system/application allows Non-US Persons to access any license export technical data like EAR LR and ITAR, is the ICP number and associated data populated to reflect the information contained in the ICP?(If the system/application does not allow Non-US Persons access to any license export technical data, the answer to this checkpoint should be "N/A").
 
-    category: 'General',
+Answer context:
+Review the full context to determine this.
 
-    type: 'RULE',
-
+Return JSON only:
+{
+    "status": "PASS|FAIL|WARNING",
+    "reason": "..."
+}
+`;
+    },
     async validate(context) {
-        // TODO: Implement ACP18 validation logic
         return {
-            checkpointId: 'ACP18',
-            status: 'PASS',
-            message: 'Not yet implemented.'
+            checkpointId: this.id,
+            type: "AI",
+            prompt: this.buildPrompt(context)
         };
     }
 };

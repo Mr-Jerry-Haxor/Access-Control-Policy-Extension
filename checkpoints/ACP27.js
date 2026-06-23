@@ -1,25 +1,37 @@
-/**
- * checkpoints/ACP27.js
- * TODO: Implement checkpoint ACP27.
- * Each checkpoint validates a specific ACP requirement.
- */
+import { getAnswerText } from "./utils.js";
 
 const ACP27 = {
+    id: "ACP27",
+    name: "ACP27 Validation",
+    category: "General",
+    type: "AI",
+    buildPrompt(context) {
+        // Gather answers from context
+        const ans_ACP_RAP2 = getAnswerText(context, "ACP-RAP2");
 
-    id: 'ACP27',
+        return `
+Validate ACP27.
 
-    name: 'Checkpoint 27',
+Requirement:
+"ACP-RAP2: Describe your approval process
+Checkpoint: Does every role listed in Section ACP AR1 have a step-by-step process which can be performed by a person who is approving/processing access to the application?"
+	Describe the system/applications access validation process
 
-    category: 'General',
+Answer context:
+ACP-RAP2 Answer: \${ans_ACP_RAP2}
 
-    type: 'RULE',
-
+Return JSON only:
+{
+    "status": "PASS|FAIL|WARNING",
+    "reason": "..."
+}
+`;
+    },
     async validate(context) {
-        // TODO: Implement ACP27 validation logic
         return {
-            checkpointId: 'ACP27',
-            status: 'PASS',
-            message: 'Not yet implemented.'
+            checkpointId: this.id,
+            type: "AI",
+            prompt: this.buildPrompt(context)
         };
     }
 };
