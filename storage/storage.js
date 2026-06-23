@@ -72,9 +72,16 @@ export async function clearConversation() {
 // Result Store
 // ============================================================
 
-export async function saveResults(assessmentId, results) {
+/**
+ * Saves validation results for an assessment.
+ * @param {string|number} assessmentId
+ * @param {Array} results
+ * @param {string} [title] - Optional display title for the assessment
+ */
+export async function saveResults(assessmentId, results, title) {
     const existing = await getAllResults();
     existing[assessmentId] = {
+        title: title || `Assessment ${assessmentId}`,
         results,
         timestamp: Date.now()
     };

@@ -734,3 +734,49 @@ summary {
     margin-left: 8px;
     font-weight: 600;
 }
+
+/* Accordion transition */
+.cp-body {
+    animation: slideDown .18s ease;
+}
+
+@keyframes slideDown {
+    from { opacity: 0; transform: translateY(-4px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+.cp-toggle:hover {
+    filter: brightness(0.97);
+}
+
+.btn-danger {
+    background: #f4a4a4;
+    border: none;
+    padding: 12px;
+    border-radius: 12px;
+    cursor: pointer;
+    width: 100%;
+    margin-top: 8px;
+    font-weight: 600;
+    color: #7a1b1b;
+    transition: background .2s;
+}
+
+.btn-danger:hover {
+    background: #f08080;
+}
+
+.btn-danger:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.checkpoint-accordion {
+    margin-top: 8px;
+}
+
+.results-container {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}

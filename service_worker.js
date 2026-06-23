@@ -10,8 +10,6 @@
  import { resetConversation } from './ai/aiService.js';
  
  chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    console.log("Service Worker received message:", request);
-    
      // Consolidated handling
      switch (request.action || request.type) {
          
@@ -20,8 +18,15 @@
              return true;
  
          case "START_VALIDATION":
+             // Clear any previous cancel signal and start fresh
+             chrome.storage.local.remove('validationCancelled');
              runValidationBatch(request.assessments);
              sendResponse({ started: true });
+             return false;
+
+         case "CANCEL_VALIDATION":
+             chrome.storage.local.set({ validationCancelled: true });
+             sendResponse({ cancelled: true });
              return false;
  
          case "CLEAR_RESULTS":
@@ -44,7 +49,6 @@
      
      const checks = await Promise.all(sites.map(async (site) => {
          try {
-             // Using HEAD request to verify session without loading full page
              const res = await fetch(site.url, { method: 'HEAD', credentials: 'include' });
              return { id: site.id, passed: res.ok, message: res.statusText, finalUrl: site.url };
          } catch (err) {
@@ -54,41 +58,60 @@
      return { success: true, prerequisites: { checks } };
  }
  
+ async function isCancelled() {
+     const { validationCancelled } = await chrome.storage.local.get('validationCancelled');
+     return !!validationCancelled;
+ }
+
  async function runValidationBatch(assessments) {
      let completed = 0;
      const total = assessments.length;
  
-     // Reset progress
+     // Reset progress and cancel flags
      await chrome.storage.local.set({ 
          validationProgress: { completed: 0, total, current: 'Gathering context for all assessments...' },
-         validationComplete: false 
+         validationComplete: false,
+         validationError: null,
+         validationCancelled: false
      });
  
      try {
-         // 1. Gather the complete context for each assessment and store it.
+         // 1. Gather context for each assessment
          const contexts = await buildContexts(assessments);
+
+         if (await isCancelled()) {
+             await chrome.storage.local.set({ validationComplete: true, validationCancelled: true });
+             return;
+         }
          
-         // 2. Once stored, we initiate the conversation.
+         // 2. Reset conversation
          await resetConversation();
          
          await chrome.storage.local.set({ 
              validationProgress: { completed: 0, total, current: 'Validating against checkpoints...' } 
          });
 
-         // 3. After initiation, we pass through each checkpoint for each assessment context.
-         // 4. We collect and store the results.
-         const results = await validateContexts(contexts);
+         // 3. Validate each context, respecting cancel signal
+         const results = await validateContexts(contexts, isCancelled);
          
          for (const res of results) {
-             await saveResults(res.assessmentId, res.results);
+             if (await isCancelled()) break;
+             await saveResults(res.assessmentId, res.results, res.assessmentTitle);
              completed++;
              await chrome.storage.local.set({ 
-                 validationProgress: { completed, total, current: `Processed ${res.assessmentId}` } 
+                 validationProgress: { 
+                     completed, 
+                     total, 
+                     current: `Processed assessment ${res.assessmentId}` 
+                 } 
              });
          }
          
-         await chrome.storage.local.set({ validationComplete: true, validationResults: results });
+         await chrome.storage.local.set({ validationComplete: true });
      } catch (err) {
-         await chrome.storage.local.set({ validationError: err.message });
+         await chrome.storage.local.set({ 
+             validationComplete: true,
+             validationError: err.message 
+         });
      }
  }

@@ -117,20 +117,98 @@ export async function getACPContext(assessmentId) {
 }
 
 // ============================================================
-// BCAI API — AI Conversation
+// BCAI API — AI Conversation via Tab Injection
 // ============================================================
 
 /**
- * Sends a conversation payload to the BCAI endpoint.
- * Uses cookie-based authentication (credentials: include).
+ * Sends a conversation payload to the BCAI endpoint by injecting the fetch
+ * into an existing boeingai.web.boeing.com tab. This ensures all session
+ * cookies are included automatically from the browser context.
+ * Falls back to direct fetch if no BCAI tab is found.
  * @param {object} payload
  * @returns {string} Raw streamed response text
  */
 export async function sendConversation(payload) {
+    // --- Validate payload: ensure messages have non-null text ---
+    if (payload.messages) {
+        payload.messages = payload.messages.map(msg => ({
+            ...msg,
+            content: Array.isArray(msg.content)
+                ? msg.content.map(c => ({
+                    ...c,
+                    text: (c.text != null && c.text !== '') ? c.text : '[empty]'
+                }))
+                : (typeof msg.content === 'string' ? msg.content : '[empty]')
+        }));
+    }
+
+    // --- Try to find an existing BCAI tab ---
+    try {
+        const tabs = await chrome.tabs.query({ url: '*://boeingai.web.boeing.com/*' });
+        const bcaiTab = tabs.find(t => t.id);
+
+        if (bcaiTab) {
+            logger.info('Sending BCAI request via tab injection (tab:', bcaiTab.id, ')');
+
+            const results = await chrome.scripting.executeScript({
+                target: { tabId: bcaiTab.id },
+                func: async (endpoint, body) => {
+                    try {
+                        const xsrfMeta = document.cookie
+                            .split(';')
+                            .map(c => c.trim())
+                            .find(c => c.startsWith('XSRF-TOKEN='));
+                        const xsrfToken = xsrfMeta ? xsrfMeta.split('=')[1] : '';
+
+                        const resp = await fetch(endpoint, {
+                            method: 'POST',
+                            credentials: 'include',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Accept': 'application/json, text/plain, */*',
+                                'sec-fetch-dest': 'empty',
+                                'sec-fetch-mode': 'cors',
+                                'sec-fetch-site': 'same-origin',
+                                ...(xsrfToken ? { 'x-xsrf-token': xsrfToken } : {})
+                            },
+                            body: JSON.stringify(body)
+                        });
+
+                        const text = await resp.text();
+                        if (!resp.ok) {
+                            return { error: true, status: resp.status, body: text.slice(0, 500) };
+                        }
+                        return { error: false, text };
+                    } catch (e) {
+                        return { error: true, status: 0, body: e.message };
+                    }
+                },
+                args: [BCAI.ENDPOINT, payload]
+            });
+
+            const result = results?.[0]?.result;
+            if (!result) throw new Error('Tab injection returned no result.');
+
+            if (result.error) {
+                throw new Error(`BCAI Tab Error ${result.status}: ${result.body}`);
+            }
+
+            return result.text;
+        }
+    } catch (tabErr) {
+        if (!tabErr.message.includes('BCAI Tab Error')) {
+            logger.warn('Tab injection failed, falling back to direct fetch:', tabErr.message);
+        } else {
+            throw tabErr;
+        }
+    }
+
+    // --- Fallback: direct fetch with cookie-based auth ---
+    logger.info('No BCAI tab found. Attempting direct fetch.');
     let xsrfToken = '';
     try {
         if (chrome && chrome.cookies) {
-            const cookie = await new Promise(resolve => 
+            const cookie = await new Promise(resolve =>
                 chrome.cookies.get({ url: 'https://boeingai.web.boeing.com', name: 'XSRF-TOKEN' }, resolve)
             );
             if (cookie) xsrfToken = cookie.value;
@@ -139,7 +217,7 @@ export async function sendConversation(payload) {
         logger.warn('Failed to read XSRF-TOKEN cookie:', err.message);
     }
 
-    const headers = { 
+    const headers = {
         'Content-Type': 'application/json',
         'Accept': 'application/json, text/plain, */*',
         'sec-fetch-dest': 'empty',
@@ -161,7 +239,7 @@ export async function sendConversation(payload) {
     if (!response.ok) {
         const errorText = await response.text().catch(() => '');
         logger.error('BCAI error:', response.status, errorText.slice(0, 200));
-        throw new Error(`BCAI Error ${response.status}: ${response.statusText}`);
+        throw new Error(`BCAI Error ${response.status}: ${errorText.slice(0, 300)}`);
     }
 
     return response.text();
