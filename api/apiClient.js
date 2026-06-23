@@ -125,10 +125,34 @@ export async function getACPContext(assessmentId) {
  * @returns {string} Raw streamed response text
  */
 export async function sendConversation(payload) {
+    let xsrfToken = '';
+    try {
+        if (chrome && chrome.cookies) {
+            const cookie = await new Promise(resolve => 
+                chrome.cookies.get({ url: 'https://boeingai.web.boeing.com', name: 'XSRF-TOKEN' }, resolve)
+            );
+            if (cookie) xsrfToken = cookie.value;
+        }
+    } catch (err) {
+        logger.warn('Failed to read XSRF-TOKEN cookie:', err.message);
+    }
+
+    const headers = { 
+        'Content-Type': 'application/json',
+        'Accept': 'application/json, text/plain, */*',
+        'sec-fetch-dest': 'empty',
+        'sec-fetch-mode': 'cors',
+        'sec-fetch-site': 'same-origin'
+    };
+
+    if (xsrfToken) {
+        headers['x-xsrf-token'] = xsrfToken;
+    }
+
     const response = await fetch(BCAI.ENDPOINT, {
         method: 'POST',
         credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
+        headers: headers,
         body: JSON.stringify(payload)
     });
 

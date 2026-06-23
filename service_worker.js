@@ -4,8 +4,10 @@
  */
 
  import { validateContexts } from './core/validation.js';
+ import { buildContexts } from './core/context.js';
  import { saveResults, clearResults } from './storage/storage.js';
- import { getACPList } from './api/apiClient.js'; // Import your loader
+ import { getACPList } from './api/apiClient.js';
+ import { resetConversation } from './ai/aiService.js';
  
  chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     console.log("Service Worker received message:", request);
@@ -57,12 +59,24 @@
  
      // Reset progress
      await chrome.storage.local.set({ 
-         validationProgress: { completed: 0, total, current: 'Starting...' },
+         validationProgress: { completed: 0, total, current: 'Gathering context for all assessments...' },
          validationComplete: false 
      });
  
      try {
-         const results = await validateContexts(assessments); // From your core/validation.js
+         // 1. Gather the complete context for each assessment and store it.
+         const contexts = await buildContexts(assessments);
+         
+         // 2. Once stored, we initiate the conversation.
+         await resetConversation();
+         
+         await chrome.storage.local.set({ 
+             validationProgress: { completed: 0, total, current: 'Validating against checkpoints...' } 
+         });
+
+         // 3. After initiation, we pass through each checkpoint for each assessment context.
+         // 4. We collect and store the results.
+         const results = await validateContexts(contexts);
          
          for (const res of results) {
              await saveResults(res.assessmentId, res.results);

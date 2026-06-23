@@ -197,10 +197,23 @@
  async function checkPrereqSessions() {
      const resp = await chrome.runtime.sendMessage({ action: "CHECK_PREREQUISITES" });
      if (resp?.prerequisites) {
+         let allPassed = true;
          resp.prerequisites.checks.forEach(check => {
              const el = document.querySelector(`.prereq-item[data-site="${check.id}"] .signal`);
              if (el) el.className = `signal ${check.passed ? "signal-pass" : "signal-fail"}`;
+             
+             const smallText = document.querySelector(`.prereq-item[data-site="${check.id}"] small`);
+             if (smallText) {
+                 smallText.textContent = check.passed ? "Checked" : (check.message || "Requires sign-on");
+             }
+             if (!check.passed) allPassed = false;
          });
+         
+         const summary = document.getElementById("prereqSummary");
+         if (summary) {
+             summary.textContent = allPassed ? "All prerequisites satisfied." : "Some prerequisites are missing.";
+             summary.style.color = allPassed ? "inherit" : "#e53e3e";
+         }
      }
  }
  
