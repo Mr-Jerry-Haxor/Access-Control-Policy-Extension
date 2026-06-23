@@ -19,7 +19,7 @@ export const URLS = {
 };
 
 export const BCAI = {
-    ENDPOINT: 'https://boeingai.web.boeing.com/das/bcai/conversation',
+    ENDPOINT: 'https://boeingai.web.boeing.com/genai-backend-api/conversation',
     MODEL: 'gpt-5.4-mini',
     CONVERSATION_MODE: ['Information Technology Command Media'],
     CONVERSATION_SOURCE: 'BCAI'

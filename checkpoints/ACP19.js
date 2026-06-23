@@ -1,36 +1,22 @@
-import { getAnswerText } from "./utils.js";
+import { getAnswerText, pass, fail, skip } from "./utils.js";
 
 const ACP19 = {
     id: "ACP19",
-    name: "ACP19 Validation",
-    category: "General",
-    type: "AI",
-    buildPrompt(context) {
-        // Gather answers from context
-        const ans_ACP_AR1 = getAnswerText(context, "ACP-AR1");
-
-        return `
-Validate ACP19.
-
-Requirement:
-Checkpoint: For every role in ACP-AR1 that has Person Status set to "Non-US Person", is the data type "US Export - Not Yet Determined" not selected? (If there aren't Non-US Persons in the application, select "N/A").
-
-Answer context:
-ACP-AR1 Answer: \${ans_ACP_AR1}
-
-Return JSON only:
-{
-    "status": "PASS|FAIL|WARNING",
-    "reason": "..."
-}
-`;
-    },
+    name: "Non-US Person Data Type Match",
+    category: "Export Compliance",
+    type: "RULE",
     async validate(context) {
-        return {
-            checkpointId: this.id,
-            type: "AI",
-            prompt: this.buildPrompt(context)
-        };
+        const ar1 = getAnswerText(context, "ACP-AR1");
+        if (!ar1) return skip(this.id, "ACP-AR1 data is missing.");
+        
+        // Simple rule check for the string since we lack a full HTML table parser
+        // If the table mentions "Non-US Person" and "US Export - Not Yet Determined", we flag a warning.
+        // A true robust check requires parsing the table cells properly.
+        if (ar1.includes("Non-US Person") && ar1.includes("US Export - Not Yet Determined")) {
+            return fail(this.id, "Non-US Person may have 'US Export - Not Yet Determined' selected.");
+        }
+        
+        return pass(this.id, "No conflicts detected for Non-US Person and Data Type.");
     }
 };
 

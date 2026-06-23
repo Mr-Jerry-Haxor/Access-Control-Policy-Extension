@@ -12,13 +12,27 @@ export function warning(checkpointId, message, additionalData = {}) {
     return { checkpointId, status: "WARNING", message, ...additionalData };
 }
 
+export function skip(checkpointId, message = "N/A", additionalData = {}) {
+    return { checkpointId, status: "N/A", message, ...additionalData };
+}
+
 export function getAnswer(context, questionId) {
-    return context.answerMap.get(questionId) || null;
+    if (context.getAnswer) return context.getAnswer(questionId);
+    return context.answerMap?.get(questionId) || null;
 }
 
 export function getAnswerText(context, questionId) {
+    if (context.getAnswerText) return context.getAnswerText(questionId);
+    
     const answer = getAnswer(context, questionId);
     if (!answer) return "";
+    
+    // Cairo API typically has answerOptions[0].internalValue or additionalData
+    if (answer.answerOptions && answer.answerOptions.length > 0) {
+        const opt = answer.answerOptions[0];
+        return opt.additionalData || opt.internalValue || "";
+    }
+    
     return answer.answer || answer.response || answer.value || "";
 }
 

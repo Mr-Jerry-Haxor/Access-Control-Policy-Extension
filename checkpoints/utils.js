@@ -10,6 +10,7 @@
     pass, 
     fail, 
     warning, 
+    skip,
     getAnswer, 
     getAnswerText,
     findAssessmentById,  // Add this

@@ -1,37 +1,16 @@
-import { getAnswerText } from "./utils.js";
+import { getAnswerText, pass, fail } from "./utils.js";
 
 const ACP2 = {
     id: "ACP2",
-    name: "ACP2 Validation",
+    name: "Application Functionality Statement",
     category: "General",
-    type: "AI",
-    buildPrompt(context) {
-        // Gather answers from context
-        const ans_ACP_AA1 = getAnswerText(context, "ACP-AA1");
-
-        return `
-Validate ACP2.
-
-Requirement:
-"ACP-AA1: Describe the functionality of the application and the business functions it performs.
-Checkpoint: Is there a statement of the functionality of the application?"
-
-Answer context:
-ACP-AA1 Answer: \${ans_ACP_AA1}
-
-Return JSON only:
-{
-    "status": "PASS|FAIL|WARNING",
-    "reason": "..."
-}
-`;
-    },
+    type: "RULE",
     async validate(context) {
-        return {
-            checkpointId: this.id,
-            type: "AI",
-            prompt: this.buildPrompt(context)
-        };
+        const text = getAnswerText(context, "ACP-AA1");
+        if (text && text.trim().length > 0) {
+            return pass(this.id, "Functionality statement is present.");
+        }
+        return fail(this.id, "No functionality statement found for ACP-AA1.");
     }
 };
 

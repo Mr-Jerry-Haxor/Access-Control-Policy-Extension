@@ -1,4 +1,4 @@
-import { getAnswerText } from "./utils.js";
+import { getAnswerText, skip } from "./utils.js";
 
 const ACP11 = {
     id: "ACP11",
@@ -7,6 +7,7 @@ const ACP11 = {
     type: "AI",
     buildPrompt(context) {
         const ans_ACP_AR1 = getAnswerText(context, "ACP-AR1");
+        if (!ans_ACP_AR1 || !ans_ACP_AR1.trim()) return null;
 
         return `
 Validate ACP11.
@@ -31,10 +32,18 @@ Return JSON only:
 `;
     },
     async validate(context) {
+        const prompt = this.buildPrompt(context);
+        // Basic check if the prompt ended up with empty answers (assuming the prompt format puts the answer at the end)
+        // A better way: if prompt is null, skip. So we will just add a check:
+        if (!prompt) return skip(this.id, "Missing required data for AI prompt.");
+        
+        // Also check if the prompt's injected answers are empty.
+        // Usually it says "Answer: ${ans_...}". If it's just "Answer: " or "Answer: \n", it's missing.
+        // We will just do a generic check or modify buildPrompt.
         return {
             checkpointId: this.id,
             type: "AI",
-            prompt: this.buildPrompt(context)
+            prompt
         };
     }
 };
