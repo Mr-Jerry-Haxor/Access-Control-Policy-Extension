@@ -155,10 +155,7 @@ export async function sendConversation(payload) {
 
         const headers = {
             'Content-Type': 'application/json',
-            'Accept': 'application/json, text/plain, */*',
-            'sec-fetch-dest': 'empty',
-            'sec-fetch-mode': 'cors',
-            'sec-fetch-site': 'same-origin'
+            'Accept': 'application/json, text/plain, */*'
         };
 
         if (xsrfToken) headers['x-xsrf-token'] = xsrfToken;
@@ -208,9 +205,6 @@ export async function sendConversation(payload) {
                         headers: {
                             'Content-Type': 'application/json',
                             'Accept': 'application/json, text/plain, */*',
-                            'sec-fetch-dest': 'empty',
-                            'sec-fetch-mode': 'cors',
-                            'sec-fetch-site': 'same-origin',
                             ...(xsrfToken ? { 'x-xsrf-token': xsrfToken } : {})
                         },
                         body: JSON.stringify(body)

@@ -16,7 +16,7 @@ let _conversation = null;
 
 function createConversation() {
     return {
-        guid: crypto.randomUUID(),
+        guid: Date.now() + '-' + crypto.randomUUID(),
         tokenUsage: 0,
         messages: [],
         created: Date.now()
