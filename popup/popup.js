@@ -149,64 +149,63 @@ function renderResults(resultsMap) {
                 ${errors > 0 ? `<span style="font-size:12px;color:#7a3a00;">⚠ ${errors} Error</span>` : ''}
                 <span style="font-size:12px;color:#475569;">– ${na} N/A</span>
             </div>
-            <div class="checkpoint-accordion" id="accordion-${id}"></div>
+            <div style="margin-top:10px; border:1px solid #e8edf5; border-radius:10px; overflow:hidden;">
+                <button class="main-cp-toggle" style="width:100%; display:flex; justify-content:space-between; align-items:center; padding:10px 12px; background:#fafbff; border:none; cursor:pointer; text-align:left;">
+                    <span style="font-size:13px; font-weight:700; color:#374151;">Checkpoints</span>
+                    <span class="main-cp-chevron" style="color:#9ca3af; font-size:12px; transition:transform .2s;">▼</span>
+                </button>
+                <div class="main-cp-body" style="display:none; padding:0; background:white; border-top:1px solid #e8edf5;">
+                    <div class="checkpoint-list" id="list-${id}"></div>
+                </div>
+            </div>
         `;
 
         container.appendChild(card);
 
-        // Render accordion items
-        const accordion = card.querySelector(`#accordion-${id}`);
+        const listContainer = card.querySelector(`#list-${id}`);
         checkpoints.forEach((cp, i) => {
             const item = document.createElement("div");
-            item.style.cssText = "border:1px solid #e8edf5;border-radius:10px;margin-top:6px;overflow:hidden;";
+            item.style.cssText = "padding:12px; border-bottom:1px solid #e8edf5;";
 
             const isAiError = cp.isAiError;
             const hasProblem = cp.status === 'FAIL' || cp.status === 'ERROR';
 
             item.innerHTML = `
-                <button class="cp-toggle" data-index="${i}" style="
-                    width:100%;display:flex;justify-content:space-between;align-items:center;
-                    padding:9px 12px;background:${hasProblem ? '#fff8f8' : '#fafbff'};
-                    border:none;cursor:pointer;text-align:left;gap:8px;
-                ">
-                    <span style="font-size:12px;font-weight:600;flex:1;">
+                <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:6px;">
+                    <span style="font-size:12px; font-weight:600; color:${hasProblem ? '#7a1b1b' : '#374151'};">
                         ${escapeHtml(cp.checkpointId)} — ${escapeHtml(cp.checkpointName || '')}
                     </span>
-                    <div style="display:flex;align-items:center;gap:6px;">
+                    <div style="display:flex; align-items:center; gap:6px;">
                         ${isAiError ? '<span style="font-size:10px;color:#7a3a00;font-weight:700;background:rgba(253,186,116,.3);padding:1px 6px;border-radius:4px;">AI Error</span>' : ''}
                         <span style="font-size:10px;color:#6b7280;">${cp.source || ''}</span>
                         ${statusBadge(cp.status)}
-                        <span class="cp-chevron" style="color:#9ca3af;font-size:12px;transition:transform .2s;">▼</span>
                     </div>
-                </button>
-                <div class="cp-body" style="display:none;padding:10px 12px;background:white;border-top:1px solid #e8edf5;">
-                    <div style="font-size:12px;color:#374151;margin-bottom:6px;">
-                        <strong>Result:</strong> ${escapeHtml(cp.message || 'No message')}
-                    </div>
-                    ${cp.rawResponse ? `
-                        <details style="margin-top:6px;">
-                            <summary style="font-size:11px;color:#6b7280;cursor:pointer;">Raw AI Response</summary>
-                            <pre style="font-size:10px;background:#f6f8fc;padding:8px;border-radius:6px;overflow-x:auto;white-space:pre-wrap;color:#374151;margin-top:4px;">${escapeHtml(cp.rawResponse)}</pre>
-                        </details>
-                    ` : ''}
-                    ${isAiError ? `
-                        <div style="margin-top:8px;padding:8px;background:rgba(253,186,116,.2);border-radius:8px;font-size:11px;color:#7a3a00;">
-                            <strong>⚠ Boeing AI Error:</strong> The AI conversation failed for this checkpoint. Validation continued for other checkpoints. Check that boeingai.web.boeing.com is open and your session is active.
-                        </div>
-                    ` : ''}
                 </div>
+                <div style="font-size:12px; color:#374151;">
+                    <strong>Result:</strong> ${escapeHtml(cp.message || 'No message')}
+                </div>
+                ${cp.rawResponse ? `
+                    <details style="margin-top:6px;">
+                        <summary style="font-size:11px;color:#6b7280;cursor:pointer;">Raw AI Response</summary>
+                        <pre style="font-size:10px;background:#f6f8fc;padding:8px;border-radius:6px;overflow-x:auto;white-space:pre-wrap;color:#374151;margin-top:4px;">${escapeHtml(cp.rawResponse)}</pre>
+                    </details>
+                ` : ''}
+                ${isAiError ? `
+                    <div style="margin-top:8px;padding:8px;background:rgba(253,186,116,.2);border-radius:8px;font-size:11px;color:#7a3a00;">
+                        <strong>⚠ Boeing AI Error:</strong> The AI conversation failed for this checkpoint. Validation continued for other checkpoints. Check that boeingai.web.boeing.com is open and your session is active.
+                    </div>
+                ` : ''}
             `;
+            listContainer.appendChild(item);
+        });
 
-            // Toggle accordion
-            item.querySelector('.cp-toggle').addEventListener('click', function () {
-                const body = item.querySelector('.cp-body');
-                const chevron = item.querySelector('.cp-chevron');
-                const isOpen = body.style.display !== 'none';
-                body.style.display = isOpen ? 'none' : 'block';
-                chevron.style.transform = isOpen ? 'rotate(0deg)' : 'rotate(180deg)';
-            });
-
-            accordion.appendChild(item);
+        // Toggle the main accordion
+        card.querySelector('.main-cp-toggle').addEventListener('click', function () {
+            const body = card.querySelector('.main-cp-body');
+            const chevron = card.querySelector('.main-cp-chevron');
+            const isOpen = body.style.display !== 'none';
+            body.style.display = isOpen ? 'none' : 'block';
+            chevron.style.transform = isOpen ? 'rotate(0deg)' : 'rotate(180deg)';
         });
     });
 }
