@@ -109,6 +109,11 @@ function statusBadge(status) {
 function renderResults(resultsMap) {
     const container = $("resultsContainer");
     container.innerHTML = "";
+
+    if (!resultsMap || Object.keys(resultsMap).length === 0) {
+        $("clearResultsBtn").classList.add("hidden");
+        return;
+    }
     $("clearResultsBtn").classList.remove("hidden");
 
     Object.entries(resultsMap).forEach(([id, data]) => {

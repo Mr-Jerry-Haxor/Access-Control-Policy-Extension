@@ -118,12 +118,6 @@ export async function buildContext(assessment) {
     return context;
 }
 
-/**
- * Builds contexts for multiple assessments.
- * Individual failures are caught and logged without stopping the batch.
- * @param {Array} assessments
- * @returns {Promise<Array>} Successfully built contexts
- */
 export async function buildContexts(assessments) {
     const results = [];
 
@@ -133,9 +127,13 @@ export async function buildContexts(assessments) {
             results.push(context);
         } catch (err) {
             logger.error(`Failed to build context for ${assessment.assessmentId}:`, err.message);
+            results.push({
+                assessment,
+                buildError: err.message
+            });
         }
     }
 
-    logger.info(`Built ${results.length}/${assessments.length} contexts.`);
+    logger.info(`Built ${results.filter(c => !c.buildError).length}/${assessments.length} contexts successfully.`);
     return results;
 }

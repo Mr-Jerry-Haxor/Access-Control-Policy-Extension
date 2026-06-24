@@ -167,6 +167,22 @@ export async function validateContexts(contexts, isCancelled) {
             context.detail?.assetName ||
             `Assessment ${assessmentId}`;
 
+        if (context.buildError) {
+            validationResults.push({
+                assessmentId,
+                assessmentTitle,
+                results: [{
+                    checkpointId: 'SETUP',
+                    checkpointName: 'Context Gathering',
+                    category: 'System',
+                    status: 'ERROR',
+                    message: `Failed to load assessment data: ${context.buildError}`,
+                    source: 'SYSTEM'
+                }]
+            });
+            continue;
+        }
+
         const results = await validateContext(context, isCancelled);
         validationResults.push({ assessmentId, assessmentTitle, results });
     }

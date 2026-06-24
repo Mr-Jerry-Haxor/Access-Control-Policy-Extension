@@ -67,6 +67,9 @@
      let completed = 0;
      const total = assessments.length;
  
+     // Clear old validation results before starting a new run
+     await clearResults();
+
      // Reset progress and cancel flags
      await chrome.storage.local.set({ 
          validationProgress: { completed: 0, total, current: 'Gathering context for all assessments...' },

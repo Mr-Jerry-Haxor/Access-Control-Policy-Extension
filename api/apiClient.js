@@ -196,11 +196,7 @@ export async function sendConversation(payload) {
             return result.text;
         }
     } catch (tabErr) {
-        if (!tabErr.message.includes('BCAI Tab Error')) {
-            logger.warn('Tab injection failed, falling back to direct fetch:', tabErr.message);
-        } else {
-            throw tabErr;
-        }
+        logger.warn('Tab injection failed or returned an error, falling back to direct fetch:', tabErr.message);
     }
 
     // --- Fallback: direct fetch with cookie-based auth ---
