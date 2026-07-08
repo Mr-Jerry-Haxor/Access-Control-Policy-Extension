@@ -19,7 +19,7 @@ Checkpoint: Does every role listed in Section ACP AR1 have a step-by-step proces
 	Describe the system/applications access validation process
 
 Answer context:
-ACP-RAP2 Answer: \${ans_ACP_RAP2}
+ACP-RAP2 Answer: ${ans_ACP_RAP2}
 
 Return JSON only:
 {

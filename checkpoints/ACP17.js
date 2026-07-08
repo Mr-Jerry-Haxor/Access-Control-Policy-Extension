@@ -6,7 +6,7 @@ const ACP17 = {
     category: "Non-Person Identifiers",
     type: "RULE",
     async validate(context) {
-        return skip(this.id, "External data dependency (Active Directory API) not present.");
+        return skip(this.id, "NPI account owner table was not present in cairo.har; CED lookups are available only for collected BEMS IDs such as database approvers.");
     }
 };
 

@@ -22,7 +22,7 @@ Note: Pass/Fail element checklist(all must be Yes to Pass this checkpoint)
 • How — Each step describes the method/tool/workflow used.(e.g: ticket ID, automation, MARS/IDAP, etc.)"
 
 Answer context:
-ACP-RAP1 Answer: \${ans_ACP_RAP1}
+ACP-RAP1 Answer: ${ans_ACP_RAP1}
 
 Return JSON only:
 {

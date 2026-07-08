@@ -22,7 +22,7 @@ Notes:
 • If there is any information in the Additional Information section of the ACP explaining the absence of responsibilities by the application team's request, answer “N/A""."
 
 Answer context:
-ACP-AR1 Answer: \${ans_ACP_AR1}
+ACP-AR1 Answer: ${ans_ACP_AR1}
 
 Return JSON only:
 {

@@ -1,4 +1,4 @@
-import { getAnswerText, pass, fail } from "./utils.js";
+import { getAnswerText, getRoleRows, pass, fail } from "./utils.js";
 
 const ACP12 = {
     id: "ACP12",
@@ -6,11 +6,24 @@ const ACP12 = {
     category: "Access Roles",
     type: "RULE",
     async validate(context) {
+        const rows = getRoleRows(context);
+        if (rows.length > 0) {
+            const invalid = rows.filter(row => {
+                const levels = [row.accessToDB, row.accessToServer, row.accessToApplication]
+                    .flat()
+                    .filter(Boolean)
+                    .map(String);
+                return levels.length === 0 || levels.every(level => /^none$/i.test(level.trim()));
+            });
+
+            return invalid.length === 0
+                ? pass(this.id, `At least one access level is selected for ${rows.length} role row(s).`)
+                : fail(this.id, `All access levels are None or missing for role(s): ${invalid.map(row => row.role || row.rowGroupNumber).join(", ")}.`);
+        }
+
         const ar1 = getAnswerText(context, "ACP-AR1");
         if (!ar1) return fail(this.id, "ACP-AR1 data is missing.");
-        
-        // A proper rule would parse the HTML table and check the Access Level column.
-        return pass(this.id, "Access levels are assumed valid pending table parser.");
+        return fail(this.id, "ACP-AR1 role table could not be parsed from CAIRO question detail.");
     }
 };
 

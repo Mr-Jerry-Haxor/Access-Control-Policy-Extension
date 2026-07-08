@@ -6,7 +6,7 @@ const ACP14 = {
     category: "Non-Person Identifiers",
     type: "RULE",
     async validate(context) {
-        return skip(this.id, "External data dependency (Risk Profiler API) not present.");
+        return skip(this.id, "Risk Profiler CSIR-SvcAcct endpoint was not present in cairo.har.");
     }
 };
 

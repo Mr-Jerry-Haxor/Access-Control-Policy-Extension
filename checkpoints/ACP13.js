@@ -20,7 +20,7 @@ Checkpoint: If the ""Responsibility"" section of a role states what type of acce
 Note: For example, if the responsibility of a role states that the role has ""read"" access to the application, then the ""Access to Application"" must have ""Read"" selected.  If the responsibility section of all the roles does not state the level of access, then ""N/A"" should be selected."
 
 Answer context:
-ACP-AR1 Answer: \${ans_ACP_AR1}
+ACP-AR1 Answer: ${ans_ACP_AR1}
 
 Return JSON only:
 {

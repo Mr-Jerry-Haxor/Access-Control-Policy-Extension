@@ -31,7 +31,7 @@ export async function getActiveConversation() {
 
     const stored = await getConversation();
     if (stored && stored.tokenUsage < CONFIG.TOKEN_THRESHOLD) {
-        // Restore from storage, but messages are in-memory (fresh/empty or reconstructed, BCAI tracks history server-side using guid)
+        // Restore the locally saved transcript so requests match BCAI's conversation payload shape.
         _conversation = {
             guid: stored.guid,
             tokenUsage: stored.tokenUsage,
@@ -46,6 +46,7 @@ export async function getActiveConversation() {
         await saveConversation({
             guid: _conversation.guid,
             tokenUsage: _conversation.tokenUsage,
+            messages: _conversation.messages,
             created: _conversation.created
         });
     }
@@ -59,6 +60,7 @@ export async function resetConversation() {
     await saveConversation({
         guid: _conversation.guid,
         tokenUsage: _conversation.tokenUsage,
+        messages: _conversation.messages,
         created: _conversation.created
     });
     logger.info('Conversation reset.');
@@ -107,10 +109,10 @@ export async function sendPrompt(prompt) {
 
     conversation.tokenUsage += estimateTokens(prompt) + estimateTokens(response);
 
-    // Save only lightweight metadata to chrome.storage.local
     await saveConversation({
         guid: conversation.guid,
         tokenUsage: conversation.tokenUsage,
+        messages: conversation.messages,
         created: conversation.created
     });
 
@@ -130,16 +132,35 @@ export async function sendPrompt(prompt) {
 export function parseBcaiResponse(raw) {
     if (!raw) return '';
 
-    const lines = raw.split('\n').filter(Boolean);
+    const lines = raw.split('\n').map(line => line.trim()).filter(Boolean);
     let content = '';
 
     for (const line of lines) {
+        const dataLine = line.startsWith('data:') ? line.slice(5).trim() : line;
+        if (!dataLine || dataLine === '[DONE]') continue;
+
         try {
-            const json = JSON.parse(line);
-            const delta = json?.choices?.[0]?.messages?.[0]?.delta;
+            const json = JSON.parse(dataLine);
+            const delta =
+                json?.choices?.[0]?.delta?.content ||
+                json?.choices?.[0]?.messages?.[0]?.delta ||
+                json?.choices?.[0]?.message?.content ||
+                json?.message?.content ||
+                '';
             if (delta) content += delta;
         } catch {
-            // Non-JSON lines are silently skipped (SSE comments, etc.)
+            try {
+                const decoded = JSON.parse(atob(dataLine));
+                const delta =
+                    decoded?.choices?.[0]?.delta?.content ||
+                    decoded?.choices?.[0]?.messages?.[0]?.delta ||
+                    decoded?.choices?.[0]?.message?.content ||
+                    decoded?.message?.content ||
+                    '';
+                if (delta) content += delta;
+            } catch {
+                // Non-JSON lines are silently skipped (SSE comments, etc.)
+            }
         }
     }
 

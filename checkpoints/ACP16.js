@@ -19,7 +19,7 @@ Checkpoint: Do all Non-Person Identifiers describe the functions that the non-pe
 Note: The description must include an action that each of the non-person identifiers perform."
 
 Answer context:
-ACP-NPI1 Answer: \${ans_ACP_NPI1}
+ACP-NPI1 Answer: ${ans_ACP_NPI1}
 
 Return JSON only:
 {

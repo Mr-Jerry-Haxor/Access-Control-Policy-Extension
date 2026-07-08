@@ -20,7 +20,7 @@ Note: The access removal process does not include elements of the access validat
 	Describe your approval process
 
 Answer context:
-ACP-RAP1 Answer: \${ans_ACP_RAP1}
+ACP-RAP1 Answer: ${ans_ACP_RAP1}
 
 Return JSON only:
 {

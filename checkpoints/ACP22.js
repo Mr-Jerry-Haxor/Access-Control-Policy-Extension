@@ -6,7 +6,7 @@ const ACP22 = {
     category: "PII Access Rules",
     type: "RULE",
     async validate(context) {
-        return skip(this.id, "External data dependency (GPO System API) not present.");
+        return skip(this.id, "GPO/1PIA registration lookup endpoint was not present in cairo.har.");
     }
 };
 

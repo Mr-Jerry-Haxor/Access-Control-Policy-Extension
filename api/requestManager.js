@@ -88,3 +88,44 @@ export async function fetchJson(url, options = {}) {
     logger.error('All retry attempts exhausted for:', url);
     throw lastError;
 }
+
+/**
+ * Posts JSON and returns parsed JSON.
+ * @param {string} url
+ * @param {object} body
+ * @param {object} options
+ */
+export async function postJson(url, body, options = {}) {
+    const config = { retries: 2, retryDelay: 1000, ...options };
+    let lastError;
+
+    for (let attempt = 1; attempt <= config.retries; attempt++) {
+        try {
+            const response = await fetch(url, {
+                method: 'POST',
+                credentials: 'include',
+                headers: {
+                    Accept: 'application/json, text/plain, */*',
+                    'Content-Type': 'application/json'
+                },
+                cache: 'no-store',
+                body: JSON.stringify(body || {})
+            });
+
+            if (!response.ok) {
+                const text = await response.text().catch(() => '');
+                throw new Error(`HTTP ${response.status} ${response.statusText}${text ? ': ' + text.slice(0, 100) : ''}`);
+            }
+
+            return await response.json();
+        } catch (err) {
+            lastError = err;
+            logger.warn(`POST failed (attempt ${attempt}/${config.retries}):`, url, err.message);
+            if (attempt < config.retries) {
+                await sleep(config.retryDelay * attempt);
+            }
+        }
+    }
+
+    throw lastError;
+}

@@ -29,11 +29,55 @@ export function getAnswerText(context, questionId) {
     
     // Cairo API typically has answerOptions[0].internalValue or additionalData
     if (answer.answerOptions && answer.answerOptions.length > 0) {
-        const opt = answer.answerOptions[0];
-        return opt.additionalData || opt.internalValue || "";
+        return answer.answerOptions
+            .map(opt => opt.additionalData || opt.internalValue || opt.displayValue || "")
+            .filter(Boolean)
+            .join("\n");
     }
     
     return answer.answer || answer.response || answer.value || "";
+}
+
+export function asArray(value) {
+    if (value == null || value === "") return [];
+    return Array.isArray(value) ? value : [value];
+}
+
+export function normalizeText(value) {
+    return String(value || "").toLowerCase().replace(/\s+/g, " ").trim();
+}
+
+export function valueIncludes(value, needle) {
+    const normalizedNeedle = normalizeText(needle);
+    return asArray(value).some(item => normalizeText(item).includes(normalizedNeedle));
+}
+
+export function getRoleRows(context) {
+    return context.roleRows || context.supportingData?.roleRows || [];
+}
+
+export function getDatabaseApproverRows(context) {
+    return context.databaseApproverRows || context.supportingData?.databaseApproverRows || [];
+}
+
+export function getRoleNames(context) {
+    return getRoleRows(context)
+        .map(row => row.role)
+        .filter(Boolean)
+        .flatMap(asArray);
+}
+
+export function hasRoleMatching(context, patterns) {
+    const regexes = asArray(patterns).map(pattern => pattern instanceof RegExp ? pattern : new RegExp(pattern, "i"));
+    return getRoleNames(context).some(role => regexes.some(regex => regex.test(String(role))));
+}
+
+export function hasAnyLabel(context, patterns, labelType = null) {
+    const regexes = asArray(patterns).map(pattern => pattern instanceof RegExp ? pattern : new RegExp(pattern, "i"));
+    return (context.supportingData?.assetLabels || []).some(label => {
+        if (labelType && normalizeText(label.labelType) !== normalizeText(labelType)) return false;
+        return regexes.some(regex => regex.test(String(label.label || "")));
+    });
 }
 
 // New helpers for ACP1.js

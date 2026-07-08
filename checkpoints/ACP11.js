@@ -22,7 +22,7 @@ Note:
 • The BLEAT! tool can be used to verify users' person types:  https://library.web.boeing.com/apps/bleat/"
 
 Answer context:
-ACP-AR1 Answer: \${ans_ACP_AR1}
+ACP-AR1 Answer: ${ans_ACP_AR1}
 
 Return JSON only:
 {

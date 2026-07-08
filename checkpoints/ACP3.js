@@ -18,7 +18,7 @@ Requirement:
 Checkpoint: Do the documented roles match the roles listed in the ""Request/Approval/Removal"" section of the ACP?"
 
 Answer context:
-ACP-AR1 Answer: \${ans_ACP_AR1}
+ACP-AR1 Answer: ${ans_ACP_AR1}
 
 Return JSON only:
 {

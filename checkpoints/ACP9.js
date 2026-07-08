@@ -6,7 +6,7 @@ const ACP9 = {
     category: "Access Roles",
     type: "RULE",
     async validate(context) {
-        return skip(this.id, "External data dependency (Risk Profiler API) not present.");
+        return skip(this.id, "Risk Profiler CSIR-IPOwner endpoint was not present in cairo.har.");
     }
 };
 

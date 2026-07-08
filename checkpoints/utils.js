@@ -13,6 +13,14 @@
     skip,
     getAnswer, 
     getAnswerText,
+    asArray,
+    normalizeText,
+    valueIncludes,
+    getRoleRows,
+    getDatabaseApproverRows,
+    getRoleNames,
+    hasRoleMatching,
+    hasAnyLabel,
     findAssessmentById,  // Add this
     collectValuesByKey   // Add this
 } from './helpers.js';

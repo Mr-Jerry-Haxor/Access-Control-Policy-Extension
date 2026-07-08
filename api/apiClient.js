@@ -4,7 +4,7 @@
  */
 
 import { URLS, BCAI } from '../utils/constants.js';
-import { fetchJson } from './requestManager.js';
+import { fetchJson, postJson } from './requestManager.js';
 import { replaceTokens, logger } from '../utils/utils.js';
 
 // ============================================================
@@ -46,6 +46,82 @@ export async function getACPQuestions(surveyTemplateId) {
     if (!surveyTemplateId) return [];
     const url = replaceTokens(URLS.ACP_QUESTIONS, { id: surveyTemplateId });
     return fetchJson(url);
+}
+
+export async function getAssessmentAssetSummary(assetId, assetTypeId = 4, assessmentTypeId = 48) {
+    if (!assetId) return [];
+    return fetchJson(replaceTokens(URLS.ACP_ASSET_SUMMARY, { assetId, assetTypeId, assessmentTypeId }));
+}
+
+export async function getReviewSummaries(assetId, assetTypeId = 4, assessmentTypeId = 48) {
+    if (!assetId) return [];
+    return fetchJson(replaceTokens(URLS.ACP_REVIEW_SUMMARIES, { assetId, assetTypeId, assessmentTypeId }));
+}
+
+export async function getAssessmentContacts(assessmentId) {
+    if (!assessmentId) return [];
+    return fetchJson(replaceTokens(URLS.ACP_ASSESSMENT_CONTACTS, { id: assessmentId }));
+}
+
+export async function getContacts(assessmentId) {
+    if (!assessmentId) return [];
+    return fetchJson(replaceTokens(URLS.ACP_CONTACTS, { id: assessmentId }));
+}
+
+export async function getAssessmentAssets(assessmentId, extra = 'SERVER_ACP') {
+    if (!assessmentId) return [];
+    return fetchJson(replaceTokens(URLS.ACP_ASSETS, { id: assessmentId, extra }));
+}
+
+export async function getWorkflowSteps(assessmentId) {
+    if (!assessmentId) return [];
+    return fetchJson(replaceTokens(URLS.ACP_WORKFLOW_STEPS, { id: assessmentId }));
+}
+
+export async function getAssessmentRecord(assessmentId) {
+    if (!assessmentId) return [];
+    return fetchJson(replaceTokens(URLS.ACP_RECORD, { id: assessmentId }));
+}
+
+export async function getSurveyTemplate(surveyTemplateId) {
+    if (!surveyTemplateId) return null;
+    return fetchJson(replaceTokens(URLS.ACP_SURVEY_TEMPLATE, { id: surveyTemplateId }));
+}
+
+export async function getQuestionGroups(surveyTemplateId) {
+    if (!surveyTemplateId) return [];
+    return fetchJson(replaceTokens(URLS.ACP_QUESTION_GROUPS, { id: surveyTemplateId }));
+}
+
+export async function getSurveyQuestionDetail(assessmentId, questionId) {
+    if (!assessmentId || !questionId) return null;
+    return fetchJson(replaceTokens(URLS.ACP_SURVEY_QUESTION, { assessmentId, questionId }), { useCache: false });
+}
+
+export async function getEsatsRoles(assetId) {
+    if (!assetId) return [];
+    return fetchJson(replaceTokens(URLS.ESATS_ROLES, { assetId }));
+}
+
+export async function getEsatsBusapp(assetId) {
+    if (!assetId) return [];
+    return fetchJson(replaceTokens(URLS.ESATS_BUSAPP, { assetId }));
+}
+
+export async function getIdentities(identityIds) {
+    const ids = [...new Set((identityIds || []).filter(Boolean).map(String))];
+    if (!ids.length) return [];
+    return fetchJson(replaceTokens(URLS.IDENTITY, { ids: ids.join('|') }));
+}
+
+export async function getCedPublic(bemsId) {
+    if (!bemsId) return [];
+    return fetchJson(replaceTokens(URLS.CED_PUBLIC, { bemsId }), { useCache: false });
+}
+
+export async function searchAssetLabels(assessmentId) {
+    if (!assessmentId) return [];
+    return postJson(URLS.ASSET_LABEL_SEARCH, { assessmentId });
 }
 
 // ============================================================
@@ -120,6 +196,39 @@ export async function getACPContext(assessmentId) {
 // BCAI API — AI Conversation via Tab Injection
 // ============================================================
 
+async function getBcaiXsrfToken() {
+    if (!globalThis.chrome?.cookies) return '';
+
+    const byUrl = await new Promise(resolve =>
+        chrome.cookies.get({ url: BCAI.ORIGIN, name: 'XSRF-TOKEN' }, resolve)
+    );
+    if (byUrl?.value) return byUrl.value;
+
+    const byDomain = await new Promise(resolve =>
+        chrome.cookies.getAll({ domain: 'boeingai.web.boeing.com' }, resolve)
+    );
+    return byDomain.find(cookie => cookie.name === 'XSRF-TOKEN')?.value || '';
+}
+
+async function readResponseText(response) {
+    if (!response.body?.getReader) {
+        return await response.text();
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let text = '';
+
+    while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        text += decoder.decode(value, { stream: true });
+    }
+
+    text += decoder.decode();
+    return text;
+}
+
 /**
  * Sends a conversation payload to the BCAI endpoint by injecting the fetch
  * into an existing boeingai.web.boeing.com tab. This ensures all session
@@ -145,20 +254,14 @@ export async function sendConversation(payload) {
     // --- Try Direct Fetch First ---
     logger.info('Attempting direct fetch to BCAI endpoint.');
     try {
-        let xsrfToken = '';
-        if (chrome && chrome.cookies) {
-            const cookie = await new Promise(resolve =>
-                chrome.cookies.get({ url: 'https://boeingai.web.boeing.com', name: 'XSRF-TOKEN' }, resolve)
-            );
-            if (cookie) xsrfToken = cookie.value;
-        }
+        const xsrfToken = await getBcaiXsrfToken();
 
         const headers = {
             'Content-Type': 'application/json',
             'Accept': 'application/json, text/plain, */*'
         };
 
-        if (xsrfToken) headers['x-xsrf-token'] = xsrfToken;
+        if (xsrfToken) headers['X-XSRF-TOKEN'] = xsrfToken;
 
         const response = await fetch(BCAI.ENDPOINT, {
             method: 'POST',
@@ -168,7 +271,7 @@ export async function sendConversation(payload) {
         });
 
         if (response.ok) {
-            return await response.text();
+            return await readResponseText(response);
         } else {
             const errorText = await response.text().catch(() => '');
             logger.warn(`Direct fetch failed (HTTP ${response.status}):`, errorText.slice(0, 200));
@@ -192,6 +295,25 @@ export async function sendConversation(payload) {
         const results = await chrome.scripting.executeScript({
             target: { tabId: bcaiTab.id },
             func: async (endpoint, body) => {
+                const readResponseText = async (response) => {
+                    if (!response.body?.getReader) {
+                        return await response.text();
+                    }
+
+                    const reader = response.body.getReader();
+                    const decoder = new TextDecoder();
+                    let text = '';
+
+                    while (true) {
+                        const { done, value } = await reader.read();
+                        if (done) break;
+                        text += decoder.decode(value, { stream: true });
+                    }
+
+                    text += decoder.decode();
+                    return text;
+                };
+
                 try {
                     const xsrfMeta = document.cookie
                         .split(';')
@@ -205,12 +327,12 @@ export async function sendConversation(payload) {
                         headers: {
                             'Content-Type': 'application/json',
                             'Accept': 'application/json, text/plain, */*',
-                            ...(xsrfToken ? { 'x-xsrf-token': xsrfToken } : {})
+                            ...(xsrfToken ? { 'X-XSRF-TOKEN': xsrfToken } : {})
                         },
                         body: JSON.stringify(body)
                     });
 
-                    const text = await resp.text();
+                    const text = await readResponseText(resp);
                     if (!resp.ok) {
                         return { error: true, status: resp.status, body: text.slice(0, 500) };
                     }

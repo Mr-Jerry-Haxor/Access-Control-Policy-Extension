@@ -29,7 +29,7 @@ Recommended:
 • How --  Identify how the SHOULD-BE list is generated. (This is actually a requirement, per policy.  But since many application teams cannot provide this information, it is not a part of the quality checklist at this time. Please incorporate into the access validation section if the application has their ""should-be"" list.)"
 
 Answer context:
-ACP-RAP3 Answer: \${ans_ACP_RAP3}
+ACP-RAP3 Answer: ${ans_ACP_RAP3}
 
 Return JSON only:
 {

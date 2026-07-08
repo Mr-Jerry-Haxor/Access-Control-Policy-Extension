@@ -2,7 +2,8 @@ import {
     collectValuesByKey,
     fail,
     findAssessmentById,
-    pass
+    pass,
+    skip
 }
 from "./utils.js";
 
@@ -48,6 +49,13 @@ const ACP1 = {
                 "voteCode"
             )
             .filter(Boolean);
+
+        if (votes.length === 0) {
+            return skip(
+                this.id,
+                "Review summary endpoint was loaded, but approval voteCode values were not present in the CAIRO response."
+            );
+        }
 
         if (
             votes.length < 2
