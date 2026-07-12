@@ -5,8 +5,9 @@
 
  import { validateContexts } from './core/validation.js';
  import { buildContexts } from './core/context.js';
- import { saveResults, clearResults } from './storage/storage.js';
- import { getACPList } from './api/apiClient.js';
+ import { saveResults, clearResults, getBcaiModelsState, saveBcaiModels, saveSelectedBcaiModel } from './storage/storage.js';
+ import { getACPList, getBcaiModels } from './api/apiClient.js';
+ import { CONFIG } from './utils/constants.js';
  import { resetConversation } from './ai/aiService.js';
  
  chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
@@ -38,8 +39,72 @@
                  .then(data => sendResponse({ success: true, data }))
                  .catch(err => sendResponse({ success: false, error: err.message }));
              return true;
+
+         case "LOAD_BCAI_MODELS":
+             loadBcaiModels({ force: !!request.force })
+                 .then(data => sendResponse({ success: true, ...data }))
+                 .catch(err => sendResponse({ success: false, error: err.message }));
+             return true;
+
+         case "SAVE_BCAI_MODEL":
+             saveSelectedBcaiModel(request.modelId, true)
+                 .then(() => sendResponse({ success: true }))
+                 .catch(err => sendResponse({ success: false, error: err.message }));
+             return true;
      }
  });
+
+ async function loadBcaiModels({ force = false } = {}) {
+     const state = await getBcaiModelsState();
+     const cacheAge = Date.now() - (state.fetchedAt || 0);
+     const cacheFresh = state.models.length > 0 && cacheAge < CONFIG.BCAI_MODELS_CACHE_TTL_MS;
+
+     if (!force && cacheFresh) {
+         const selection = resolveModelSelection(state.models, state);
+         if (selection.selectedModelId !== state.selectedModelId || selection.userSelectedModel !== state.userSelectedModel) {
+             await saveSelectedBcaiModel(selection.selectedModelId, selection.userSelectedModel);
+         }
+         return { ...state, ...selection, fromCache: true };
+     }
+
+     const models = await getBcaiModels();
+     if (!models.length) {
+         if (state.models.length) {
+             const selection = resolveModelSelection(state.models, state);
+             return { ...state, ...selection, fromCache: true, stale: true };
+         }
+         throw new Error('No BCAI models returned.');
+     }
+
+     const selection = resolveModelSelection(models, state);
+
+     const fetchedAt = Date.now();
+     await saveBcaiModels(models, fetchedAt);
+     await saveSelectedBcaiModel(selection.selectedModelId, selection.userSelectedModel);
+
+     return { models, fetchedAt, ...selection, fromCache: false };
+ }
+
+ function resolveModelSelection(models, state) {
+     const selectedStillExists = state.userSelectedModel
+         && models.some(model => model.model_id === state.selectedModelId);
+     const selectedModelId = selectedStillExists
+         ? state.selectedModelId
+         : getHighestTokenModel(models).model_id;
+
+     return {
+         selectedModelId,
+         userSelectedModel: selectedStillExists
+     };
+ }
+
+ function getHighestTokenModel(models) {
+     return [...models].sort((a, b) => {
+         const bTokens = Number(b.max_context_tokens) || 0;
+         const aTokens = Number(a.max_context_tokens) || 0;
+         return bTokens - aTokens;
+     })[0];
+ }
  
  async function checkSessions() {
      const sites = [

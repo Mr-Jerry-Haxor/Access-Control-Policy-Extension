@@ -6,7 +6,7 @@ const ACP4 = {
     category: "Access Roles",
     type: "RULE",
     async validate(context) {
-        return skip(this.id, "STAR/MARS online request-form endpoints were not present in cairo.har.");
+        return skip(this.id, "STAR/MARS online request-form endpoints were not present in .");
     }
 };
 

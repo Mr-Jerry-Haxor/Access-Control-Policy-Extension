@@ -11,7 +11,7 @@ const ACP15 = {
         const isInternalWebApp = /internal web/i.test(`${appRecord.baAppTypeCategory || ""} ${appRecord.description || ""}`);
 
         if (!hasDatabaseEvidence && !isInternalWebApp) {
-            return skip(this.id, "CMDB database inventory endpoint was not present in cairo.har, and CAIRO did not show database/internal-web evidence.");
+            return skip(this.id, "CMDB database inventory endpoint was not present in , and CAIRO did not show database/internal-web evidence.");
         }
 
         const npiAnswer = getAnswerText(context, "ACP-NPI1");

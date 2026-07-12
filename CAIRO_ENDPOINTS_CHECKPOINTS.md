@@ -1,6 +1,6 @@
 # CAIRO Endpoint Mapping for ACP Checkpoints
 
-This file summarizes the CAIRO endpoints observed in `cairo.har` and how the extension uses them for ACP checkpoint validation.
+This file summarizes the CAIRO endpoints observed in `` and how the extension uses them for ACP checkpoint validation.
 
 ## Core ACP Data
 
@@ -59,4 +59,4 @@ This file summarizes the CAIRO endpoints observed in `cairo.har` and how the ext
 
 - CAIRO-supported rule checks: `ACP1`, `ACP2`, `ACP5`, `ACP7`, `ACP10`, `ACP12`, `ACP15`, `ACP18`, `ACP19`, `ACP20`, `ACP21`.
 - CAIRO table data feeds AI checks: `ACP3`, `ACP8`, `ACP11`, `ACP13`, `ACP23`, `ACP24`, `ACP25`, `ACP26`, `ACP27`, `ACP28`.
-- External systems not present in `cairo.har`: STAR/MARS request form APIs, CMDB database inventory and DBA person type APIs, Risk Profiler CSIR APIs, GPO/1PIA lookup APIs, and NPI owner table data.
+- External systems not present in ``: STAR/MARS request form APIs, CMDB database inventory and DBA person type APIs, Risk Profiler CSIR APIs, GPO/1PIA lookup APIs, and NPI owner table data.

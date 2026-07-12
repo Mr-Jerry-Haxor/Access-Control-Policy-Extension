@@ -10,6 +10,8 @@ let allAcps = [];
 let filteredAcps = [];
 let selectedIds = [];
 let pollInterval = null;
+let bcaiModels = [];
+let selectedModelId = null;
 
 const $ = id => document.getElementById(id);
 
@@ -22,6 +24,7 @@ async function initialize() {
     selectedIds = await getSelectedAcps();
     // 3. Fetch primary data
     await refreshData();
+    await loadModelConfiguration();
     attachEvents();
     updateSelectedCount();
     loadExistingResults();
@@ -29,6 +32,11 @@ async function initialize() {
 
 function attachEvents() {
     $("refreshBtn").addEventListener("click", refreshData);
+    $("settingsBtn").addEventListener("click", openSettingsModal);
+    $("closeSettingsBtn").addEventListener("click", closeSettingsModal);
+    $("settingsModal").addEventListener("click", handleSettingsBackdropClick);
+    $("refreshModelsBtn").addEventListener("click", () => loadModelConfiguration({ force: true }));
+    $("modelSelect").addEventListener("change", handleModelSelection);
     $("checkPrereqBtn").addEventListener("click", checkPrereqSessions);
     $("selectAllBtn").addEventListener("click", handleSelectAll);
     $("clearSelectionBtn").addEventListener("click", handleClearSelection);
@@ -42,6 +50,144 @@ function attachEvents() {
     $("ownerFilter").addEventListener("change", applyFilters);
     $("dateStartFilter").addEventListener("change", applyFilters);
     $("dateEndFilter").addEventListener("change", applyFilters);
+}
+
+// ==========================================
+// SETTINGS / MODEL CONFIGURATION
+// ==========================================
+
+async function loadModelConfiguration({ force = false } = {}) {
+    setModelStatus(force ? "Refreshing BCAI models..." : "Loading BCAI models...");
+    $("refreshModelsBtn").disabled = true;
+    $("modelSelect").disabled = true;
+
+    try {
+        const response = await chrome.runtime.sendMessage({ action: "LOAD_BCAI_MODELS", force });
+        if (!response?.success) {
+            throw new Error(response?.error || "Unable to load BCAI models.");
+        }
+
+        bcaiModels = response.models || [];
+        selectedModelId = response.selectedModelId || bcaiModels[0]?.model_id || null;
+        renderModelSelector();
+        renderModelDetails();
+        updateModelCacheStatus(response);
+    } catch (err) {
+        setModelStatus(`Model configuration unavailable: ${err.message}`);
+        $("modelSelect").innerHTML = '<option value="">No models available</option>';
+        $("modelDetails").innerHTML = "";
+    } finally {
+        $("refreshModelsBtn").disabled = false;
+        $("modelSelect").disabled = bcaiModels.length === 0;
+    }
+}
+
+function openSettingsModal() {
+    $("settingsModal").classList.remove("hidden");
+    renderModelDetails();
+}
+
+function closeSettingsModal() {
+    $("settingsModal").classList.add("hidden");
+}
+
+function handleSettingsBackdropClick(event) {
+    if (event.target === $("settingsModal")) closeSettingsModal();
+}
+
+async function handleModelSelection(event) {
+    selectedModelId = event.target.value;
+    renderModelDetails();
+
+    const response = await chrome.runtime.sendMessage({
+        action: "SAVE_BCAI_MODEL",
+        modelId: selectedModelId
+    });
+
+    if (!response?.success) {
+        setModelStatus(`Failed to save selected model: ${response?.error || "Unknown error"}`);
+        return;
+    }
+
+    const model = getSelectedModel();
+    setModelStatus(`Selected model: ${model?.display_name || selectedModelId}`);
+}
+
+function renderModelSelector() {
+    const select = $("modelSelect");
+    select.innerHTML = "";
+
+    if (!bcaiModels.length) {
+        select.innerHTML = '<option value="">No models available</option>';
+        return;
+    }
+
+    bcaiModels.forEach(model => {
+        const option = document.createElement("option");
+        option.value = model.model_id;
+        option.textContent = `${model.display_name || model.model_id}${model.model_family ? ` (${model.model_family})` : ""}`;
+        select.appendChild(option);
+    });
+
+    select.value = selectedModelId;
+}
+
+function renderModelDetails() {
+    const model = getSelectedModel();
+    const container = $("modelDetails");
+
+    if (!model) {
+        container.innerHTML = '<div class="settings-muted">Select a model to view its limits and supported parameters.</div>';
+        return;
+    }
+
+    const supportedParams = model.supported_parameters || [];
+    const allowedInfoTypes = model.allowed_info_types || [];
+    const defaultTokens = model.default_response_max_tokens || "N/A";
+    const responseTokens = model.response_max_tokens || "N/A";
+
+    container.innerHTML = `
+        <div class="model-detail-row"><strong>Model ID</strong><span>${escapeHtml(model.model_id)}</span></div>
+        <div class="model-detail-row"><strong>Context Window</strong><span>${escapeHtml(model.max_tokens || "N/A")}</span></div>
+        <div class="model-detail-row"><strong>Default Response Tokens</strong><span>${escapeHtml(formatNumber(defaultTokens))}</span></div>
+        <div class="model-detail-row"><strong>Maximum Response Tokens</strong><span>${escapeHtml(formatNumber(responseTokens))}</span></div>
+        <div class="model-detail-row"><strong>Retirement Date</strong><span>${escapeHtml(model.retirement_date || "N/A")}</span></div>
+        <div class="model-detail-row"><strong>Description</strong><span>${escapeHtml(model.short_description || model.description || "N/A")}</span></div>
+        <div class="model-detail-row">
+            <strong>Allowed Info Types</strong>
+            <span class="model-tags">${renderTags(allowedInfoTypes)}</span>
+        </div>
+        <div class="model-detail-row">
+            <strong>Supported Parameters</strong>
+            <span class="model-tags">${renderTags(supportedParams)}</span>
+        </div>
+    `;
+}
+
+function getSelectedModel() {
+    return bcaiModels.find(model => model.model_id === selectedModelId) || null;
+}
+
+function updateModelCacheStatus(response) {
+    const fetchedAt = response.fetchedAt ? new Date(response.fetchedAt).toLocaleString() : "N/A";
+    const source = response.fromCache ? "Loaded from local cache" : "Fetched from BCAI";
+    const stale = response.stale ? " Cache is stale because refresh failed." : "";
+    const selection = response.userSelectedModel ? "Using your selected model." : "Defaulting to the highest context window model.";
+    setModelStatus(`${source}. Last refreshed: ${fetchedAt}. ${selection}${stale}`);
+}
+
+function setModelStatus(message) {
+    $("modelCacheStatus").textContent = message;
+}
+
+function renderTags(values) {
+    if (!values.length) return '<span>N/A</span>';
+    return values.map(value => `<span class="model-tag">${escapeHtml(value)}</span>`).join("");
+}
+
+function formatNumber(value) {
+    if (typeof value === "number") return value.toLocaleString();
+    return value;
 }
 
 // ==========================================

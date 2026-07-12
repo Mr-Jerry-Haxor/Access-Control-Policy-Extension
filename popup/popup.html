@@ -18,6 +18,7 @@
                 Quality control List version : 2.5
             </span>
             <button id="refreshBtn" class="icon-btn">↻</button>
+            <button id="settingsBtn" class="icon-btn" title="Settings">⚙</button>
         </div>
     </header>
 
@@ -107,6 +108,37 @@
         </div>
         <div id="resultsContainer" class="results-container"></div>
     </section>
+</div>
+
+<div id="settingsModal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+    <div class="modal-panel">
+        <div class="modal-header">
+            <div>
+                <div class="eyebrow">Extension Configuration</div>
+                <h2 id="settingsTitle">Settings</h2>
+            </div>
+            <button id="closeSettingsBtn" class="icon-btn small-icon-btn" title="Close">×</button>
+        </div>
+
+        <section class="settings-section">
+            <div class="settings-section-header">
+                <div>
+                    <div class="card-title">Model Configuration</div>
+                    <div id="modelCacheStatus" class="settings-muted">Loading model configuration...</div>
+                </div>
+                <button id="refreshModelsBtn" class="btn-secondary">Refresh Models</button>
+            </div>
+
+            <label class="field-label" for="modelSelect">
+                BCAI Model
+                <select id="modelSelect" class="input">
+                    <option value="">Loading models...</option>
+                </select>
+            </label>
+
+            <div id="modelDetails" class="model-details"></div>
+        </section>
+    </div>
 </div>
 
 <script type="module" src="popup.js"></script>

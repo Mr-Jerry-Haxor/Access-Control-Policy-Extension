@@ -8,7 +8,8 @@ export const CONFIG = {
     ACP_ASSESSMENT_TYPE: 48,
     MAX_CONCURRENT_VALIDATIONS: 5,
     TOKEN_THRESHOLD: 180000,
-    CACHE_TTL_MS: 5 * 60 * 1000 // 5 minutes
+    CACHE_TTL_MS: 5 * 60 * 1000, // 5 minutes
+    BCAI_MODELS_CACHE_TTL_MS: 24 * 60 * 60 * 1000 // 1 day
 };
 
 export const URLS = {
@@ -35,8 +36,10 @@ export const URLS = {
 
 export const BCAI = {
     ENDPOINT: 'https://boeingai.web.boeing.com/genai-backend-api/conversation',
+    MODELS_ENDPOINT: 'https://boeingai.web.boeing.com/bcai-security-api/models',
     ORIGIN: 'https://boeingai.web.boeing.com',
     MODEL: 'gpt-5.4-mini',
+    DEFAULT_RESPONSE_MAX_TOKENS: 32000,
     CONVERSATION_MODE: ['Information Technology Command Media'],
     CONVERSATION_SOURCE: 'BCAI'
 };

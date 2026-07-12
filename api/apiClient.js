@@ -229,6 +229,107 @@ async function readResponseText(response) {
     return text;
 }
 
+async function fetchFromBcaiTab(endpoint, options = {}) {
+    const tabs = await chrome.tabs.query({ url: '*://boeingai.web.boeing.com/*' });
+    const bcaiTab = tabs.find(t => t.id);
+
+    if (!bcaiTab) throw new Error('No active Boeing AI tab found for injection.');
+
+    const results = await chrome.scripting.executeScript({
+        target: { tabId: bcaiTab.id },
+        func: async (url, requestOptions) => {
+            try {
+                const xsrfMeta = document.cookie
+                    .split(';')
+                    .map(c => c.trim())
+                    .find(c => c.startsWith('XSRF-TOKEN='));
+                const xsrfToken = xsrfMeta ? xsrfMeta.split('=')[1] : '';
+
+                const resp = await fetch(url, {
+                    credentials: 'include',
+                    ...requestOptions,
+                    headers: {
+                        'Accept': 'application/json, text/plain, */*',
+                        ...(requestOptions.headers || {}),
+                        ...(xsrfToken ? { 'X-XSRF-TOKEN': xsrfToken } : {})
+                    }
+                });
+
+                const text = await resp.text();
+                if (!resp.ok) {
+                    return { error: true, status: resp.status, body: text.slice(0, 500) };
+                }
+                return { error: false, text };
+            } catch (e) {
+                return { error: true, status: 0, body: e.message };
+            }
+        },
+        args: [endpoint, options]
+    });
+
+    const result = results?.[0]?.result;
+    if (!result) throw new Error('BCAI tab injection returned no result.');
+    if (result.error) throw new Error(`BCAI Tab Error ${result.status}: ${result.body}`);
+    return result.text;
+}
+
+function normalizeBcaiModel(model) {
+    const modelId = model?.model_id || model?.modelId || model?.id || '';
+    if (!modelId) return null;
+    const maxTokens = model?.max_tokens || model?.maxTokens || '';
+
+    return {
+        model_id: modelId,
+        model_type: model?.model_type || model?.modelType || modelId,
+        display_name: model?.display_name || model?.displayName || modelId,
+        model_family: model?.model_family || model?.modelFamily || '',
+        max_tokens: maxTokens,
+        max_context_tokens: parseTokenLimit(maxTokens),
+        response_max_tokens: Number(model?.response_max_tokens ?? model?.responseMaxTokens ?? 0) || null,
+        default_response_max_tokens: Number(model?.default_response_max_tokens ?? model?.defaultResponseMaxTokens ?? 0) || null,
+        short_description: model?.short_description || model?.shortDescription || '',
+        description: model?.description || '',
+        allowed_info_types: Array.isArray(model?.allowed_info_types) ? model.allowed_info_types : [],
+        supported_parameters: Array.isArray(model?.supported_parameters) ? model.supported_parameters : [],
+        retirement_date: model?.retirement_date || null
+    };
+}
+
+function parseTokenLimit(value) {
+    if (typeof value === 'number') return value;
+    const numeric = String(value || '').replace(/[^\d]/g, '');
+    return Number(numeric) || null;
+}
+
+export async function getBcaiModels() {
+    logger.info('Fetching BCAI models.');
+    try {
+        const xsrfToken = await getBcaiXsrfToken();
+        const headers = { 'Accept': 'application/json, text/plain, */*' };
+        if (xsrfToken) headers['X-XSRF-TOKEN'] = xsrfToken;
+
+        const response = await fetch(BCAI.MODELS_ENDPOINT, {
+            method: 'GET',
+            credentials: 'include',
+            headers
+        });
+
+        if (response.ok) {
+            const models = await response.json();
+            return Array.isArray(models) ? models.map(normalizeBcaiModel).filter(Boolean) : [];
+        }
+
+        const errorText = await response.text().catch(() => '');
+        logger.warn(`Direct BCAI models fetch failed (HTTP ${response.status}):`, errorText.slice(0, 200));
+    } catch (err) {
+        logger.warn('Direct BCAI models fetch failed with exception:', err.message);
+    }
+
+    const injectedText = await fetchFromBcaiTab(BCAI.MODELS_ENDPOINT, { method: 'GET' });
+    const models = JSON.parse(injectedText);
+    return Array.isArray(models) ? models.map(normalizeBcaiModel).filter(Boolean) : [];
+}
+
 /**
  * Sends a conversation payload to the BCAI endpoint by injecting the fetch
  * into an existing boeingai.web.boeing.com tab. This ensures all session

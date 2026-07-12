@@ -5,7 +5,7 @@
 
 import { estimateTokens, logger } from '../utils/utils.js';
 import { BCAI, CONFIG } from '../utils/constants.js';
-import { getConversation, saveConversation } from '../storage/storage.js';
+import { getBcaiModelsState, getConversation, saveConversation } from '../storage/storage.js';
 import { sendConversation } from '../api/apiClient.js';
 
 // ============================================================
@@ -24,13 +24,13 @@ function createConversation() {
 }
 
 /** Gets the active conversation, creating a new one if needed or over token limit. */
-export async function getActiveConversation() {
-    if (_conversation && _conversation.tokenUsage < CONFIG.TOKEN_THRESHOLD) {
+export async function getActiveConversation(tokenThreshold = CONFIG.TOKEN_THRESHOLD) {
+    if (_conversation && _conversation.tokenUsage < tokenThreshold) {
         return _conversation;
     }
 
     const stored = await getConversation();
-    if (stored && stored.tokenUsage < CONFIG.TOKEN_THRESHOLD) {
+    if (stored && stored.tokenUsage < tokenThreshold) {
         // Restore the locally saved transcript so requests match BCAI's conversation payload shape.
         _conversation = {
             guid: stored.guid,
@@ -79,8 +79,9 @@ export async function resetConversation() {
  * @returns {string} Parsed AI response text
  */
 export async function sendPrompt(prompt) {
+    const modelConfig = await getSelectedModelConfig();
     // Load conversation once, mutate in memory, save once at end
-    const conversation = await getActiveConversation();
+    const conversation = await getActiveConversation(modelConfig.tokenThreshold);
 
     // Add user message
     conversation.messages.push({
@@ -93,10 +94,14 @@ export async function sendPrompt(prompt) {
         conversation_mode: BCAI.CONVERSATION_MODE,
         conversation_source: BCAI.CONVERSATION_SOURCE,
         conversation_name: '',
-        model: BCAI.MODEL,
+        model: modelConfig.modelId,
         skip_db_save: false,
         messages: conversation.messages
     };
+
+    if (modelConfig.responseMaxTokens) {
+        payload.response_max_tokens = modelConfig.responseMaxTokens;
+    }
 
     const rawResponse = await sendConversation(payload);
     const response = parseBcaiResponse(rawResponse);
@@ -117,6 +122,47 @@ export async function sendPrompt(prompt) {
     });
 
     return response;
+}
+
+async function getSelectedModelConfig() {
+    const { models, selectedModelId, userSelectedModel } = await getBcaiModelsState();
+    const userSelected = userSelectedModel
+        ? models.find(model => model.model_id === selectedModelId)
+        : null;
+    const selectedModel = userSelected || getHighestTokenModel(models);
+
+    if (!selectedModel) {
+        return {
+            modelId: BCAI.MODEL,
+            responseMaxTokens: BCAI.DEFAULT_RESPONSE_MAX_TOKENS,
+            tokenThreshold: CONFIG.TOKEN_THRESHOLD
+        };
+    }
+
+    const supportsResponseMaxTokens = selectedModel.supported_parameters?.includes('response_max_tokens');
+    const responseMaxTokens = supportsResponseMaxTokens
+        ? selectedModel.default_response_max_tokens || selectedModel.response_max_tokens || BCAI.DEFAULT_RESPONSE_MAX_TOKENS
+        : null;
+
+    return {
+        modelId: selectedModel.model_id,
+        responseMaxTokens,
+        tokenThreshold: getTokenThreshold(selectedModel)
+    };
+}
+
+function getTokenThreshold(model) {
+    const maxContextTokens = Number(model.max_context_tokens) || null;
+    if (!maxContextTokens) return CONFIG.TOKEN_THRESHOLD;
+    return maxContextTokens;
+}
+
+function getHighestTokenModel(models) {
+    return [...(models || [])].sort((a, b) => {
+        const bTokens = Number(b.max_context_tokens) || 0;
+        const aTokens = Number(a.max_context_tokens) || 0;
+        return bTokens - aTokens;
+    })[0] || null;
 }
 
 // ============================================================

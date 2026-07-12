@@ -10,7 +10,7 @@ const ACP5 = {
         const hasDatabaseEvidence = databaseApprovers.length > 0 || hasRoleMatching(context, /\bDBA\b|database administrator/i);
 
         if (!hasDatabaseEvidence) {
-            return skip(this.id, "CMDB database inventory endpoint was not present in cairo.har, and no CAIRO database approver/DBA evidence was found.");
+            return skip(this.id, "CMDB database inventory endpoint was not present in , and no CAIRO database approver/DBA evidence was found.");
         }
 
         return hasRoleMatching(context, /\bDBA\b|database administrator/i)
