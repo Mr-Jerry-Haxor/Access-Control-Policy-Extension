@@ -33,7 +33,8 @@ const KEYS = {
     BCAI_MODELS: 'bcaiModels',
     BCAI_MODELS_FETCHED_AT: 'bcaiModelsFetchedAt',
     BCAI_SELECTED_MODEL: 'bcaiSelectedModel',
-    BCAI_MODEL_USER_SELECTED: 'bcaiModelUserSelected'
+    BCAI_MODEL_USER_SELECTED: 'bcaiModelUserSelected',
+    STARTUP_BEHAVIOR: 'startupBehavior'
 };
 
 // ============================================================
@@ -54,6 +55,14 @@ export async function saveSelectedAcps(ids) {
 
 export async function getSelectedAcps() {
     return (await getValue(KEYS.SELECTED)) || [];
+}
+
+export async function getStartupBehavior() {
+    return (await getValue(KEYS.STARTUP_BEHAVIOR)) || 'restoreCached';
+}
+
+export async function saveStartupBehavior(behavior) {
+    await setValue(KEYS.STARTUP_BEHAVIOR, behavior);
 }
 
 // ============================================================

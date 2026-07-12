@@ -703,6 +703,46 @@ h1 {
     background: #fbfcff;
 }
 
+.settings-section + .settings-section {
+    margin-top: 12px;
+}
+
+.startup-option {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: white;
+    cursor: pointer;
+}
+
+.startup-option + .startup-option {
+    margin-top: 8px;
+}
+
+.startup-option input {
+    margin-top: 3px;
+}
+
+.startup-option span {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.startup-option strong {
+    color: var(--text);
+    font-size: 13px;
+}
+
+.startup-option small {
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.35;
+}
+
 .settings-section-header {
     display: flex;
     align-items: flex-start;

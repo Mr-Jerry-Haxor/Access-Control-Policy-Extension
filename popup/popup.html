@@ -120,6 +120,24 @@
             <button id="closeSettingsBtn" class="icon-btn small-icon-btn" title="Close">×</button>
         </div>
 
+        <section class="settings-section startup-section">
+            <div class="card-title">Browser Behavior</div>
+            <label class="startup-option">
+                <input type="radio" name="startupBehavior" value="refreshOnOpen">
+                <span>
+                    <strong>Refresh on open</strong>
+                    <small>Current behavior. The assessment list is refreshed each time the popup opens.</small>
+                </span>
+            </label>
+            <label class="startup-option">
+                <input type="radio" name="startupBehavior" value="restoreCached">
+                <span>
+                    <strong>Reopen from saved state</strong>
+                    <small>Use cached assessments and existing results when the popup reopens. Use refresh for new data.</small>
+                </span>
+            </label>
+        </section>
+
         <section class="settings-section">
             <div class="settings-section-header">
                 <div>

@@ -3,7 +3,16 @@
  * Integrated ACP Validator - UI Logic
  */
 
-import { getAcps, saveAcps, getSelectedAcps, saveSelectedAcps, getAllResults, clearResults } from "../storage/storage.js";
+import {
+    getAcps,
+    saveAcps,
+    getSelectedAcps,
+    saveSelectedAcps,
+    getAllResults,
+    clearResults,
+    getStartupBehavior,
+    saveStartupBehavior
+} from "../storage/storage.js";
 import { searchAcps } from "./popupUtils.js";
 
 let allAcps = [];
@@ -12,6 +21,7 @@ let selectedIds = [];
 let pollInterval = null;
 let bcaiModels = [];
 let selectedModelId = null;
+let startupBehavior = 'refreshOnOpen';
 
 const $ = id => document.getElementById(id);
 
@@ -22,8 +32,10 @@ async function initialize() {
     checkPrereqSessions();
     // 2. Load existing selections
     selectedIds = await getSelectedAcps();
-    // 3. Fetch primary data
-    await refreshData();
+    startupBehavior = await getStartupBehavior();
+    renderStartupBehavior();
+    // 3. Load primary data according to the configured browser behavior
+    await loadInitialAssessmentData();
     await loadModelConfiguration();
     attachEvents();
     updateSelectedCount();
@@ -37,6 +49,9 @@ function attachEvents() {
     $("settingsModal").addEventListener("click", handleSettingsBackdropClick);
     $("refreshModelsBtn").addEventListener("click", () => loadModelConfiguration({ force: true }));
     $("modelSelect").addEventListener("change", handleModelSelection);
+    document.querySelectorAll('input[name="startupBehavior"]').forEach(input => {
+        input.addEventListener("change", handleStartupBehaviorChange);
+    });
     $("checkPrereqBtn").addEventListener("click", checkPrereqSessions);
     $("selectAllBtn").addEventListener("click", handleSelectAll);
     $("clearSelectionBtn").addEventListener("click", handleClearSelection);
@@ -55,6 +70,16 @@ function attachEvents() {
 // ==========================================
 // SETTINGS / MODEL CONFIGURATION
 // ==========================================
+
+function renderStartupBehavior() {
+    const selected = document.querySelector(`input[name="startupBehavior"][value="${startupBehavior}"]`);
+    if (selected) selected.checked = true;
+}
+
+async function handleStartupBehaviorChange(event) {
+    startupBehavior = event.target.value;
+    await saveStartupBehavior(startupBehavior);
+}
 
 async function loadModelConfiguration({ force = false } = {}) {
     setModelStatus(force ? "Refreshing BCAI models..." : "Loading BCAI models...");
@@ -359,6 +384,20 @@ function renderResults(resultsMap) {
 // ==========================================
 // ACTIONS
 // ==========================================
+
+async function loadInitialAssessmentData() {
+    if (startupBehavior === 'restoreCached') {
+        const cachedAcps = await getAcps();
+        if (cachedAcps.length) {
+            allAcps = cachedAcps;
+            populateOwnerFilter();
+            applyFilters();
+            return;
+        }
+    }
+
+    await refreshData();
+}
 
 async function refreshData() {
     const response = await chrome.runtime.sendMessage({ action: "LOAD_ACPS" });
