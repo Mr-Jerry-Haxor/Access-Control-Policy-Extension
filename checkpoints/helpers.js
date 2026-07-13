@@ -38,6 +38,10 @@ export function getAnswerText(context, questionId) {
     return answer.answer || answer.response || answer.value || "";
 }
 
+export function needsReview(checkpointId, message, additionalData = {}) {
+    return { checkpointId, status: "REVIEW", message, requiresHumanVerification: true, ...additionalData };
+}
+
 export function asArray(value) {
     if (value == null || value === "") return [];
     return Array.isArray(value) ? value : [value];

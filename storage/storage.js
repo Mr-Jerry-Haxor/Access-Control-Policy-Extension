@@ -30,6 +30,7 @@ const KEYS = {
     SELECTED: 'selectedAcps',
     CONVERSATION: 'bcaiConversation',
     RESULTS: 'validationResults',
+    REVIEW_RESULTS: 'reviewResults',
     BCAI_MODELS: 'bcaiModels',
     BCAI_MODELS_FETCHED_AT: 'bcaiModelsFetchedAt',
     BCAI_SELECTED_MODEL: 'bcaiSelectedModel',
@@ -112,6 +113,24 @@ export async function getAllResults() {
 
 export async function clearResults() {
     await removeValue(KEYS.RESULTS);
+}
+
+export async function saveReviewResult(assessmentId, review, title) {
+    const existing = await getAllReviewResults();
+    existing[assessmentId] = {
+        title: title || `Assessment ${assessmentId}`,
+        review,
+        timestamp: Date.now()
+    };
+    await setValue(KEYS.REVIEW_RESULTS, existing);
+}
+
+export async function getAllReviewResults() {
+    return (await getValue(KEYS.REVIEW_RESULTS)) || {};
+}
+
+export async function clearReviewResults() {
+    await removeValue(KEYS.REVIEW_RESULTS);
 }
 
 // ============================================================

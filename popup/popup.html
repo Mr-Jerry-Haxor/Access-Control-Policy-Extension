@@ -1,7 +1,8 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>ACP Validator</title>
     <link rel="stylesheet" href="popup.css">
 </head>
@@ -11,16 +12,17 @@
     <header class="header">
         <div>
             <div class="eyebrow">Boeing ACP Validator</div>
-            <h1>Validation Dashboard</h1>
+            <h1>ACP Automation</h1>
         </div>
         <div class="header-actions">
             <span class="version-label">
-                Quality control List version : 2.5
+                Quality Control v2.5
             </span>
-            <button id="refreshBtn" class="icon-btn">↻</button>
-            <button id="settingsBtn" class="icon-btn" title="Settings">⚙</button>
+            <button id="refreshBtn" class="icon-btn" title="Refresh assessments" aria-label="Refresh assessments">↻</button>
+            <button id="settingsBtn" class="icon-btn" title="Settings" aria-label="Open settings">⚙</button>
         </div>
     </header>
+    <div id="uiNotice" class="ui-notice hidden" role="status" aria-live="polite"></div>
 
     <!-- PREREQUISITES -->
     <section class="card prerequisites-card">
@@ -28,8 +30,8 @@
             <span>Prerequisites</span>
             <div class="prereq-actions">
                 <div class="tooltip-wrap">
-                    <button id="prereqHelpBtn" class="icon-btn small-icon-btn">?</button>
-                    <div class="tooltip-panel" role="tooltip">
+                    <button id="prereqHelpBtn" class="icon-btn small-icon-btn" aria-label="Prerequisite help" aria-describedby="prereqTooltip">?</button>
+                    <div id="prereqTooltip" class="tooltip-panel" role="tooltip">
                         <strong>Before validating</strong>
                         <p>Ensure you are signed in to the following Boeing services:</p>
                         <ol>
@@ -56,23 +58,44 @@
 
     <!-- FILTERS -->
     <section class="card">
-        <div class="card-title">ACP Assessment Explorer</div>
-        <input id="searchInput" class="input" placeholder="Search by ID, title, or owner...">
+        <div class="card-title">Assessment Explorer</div>
+        <label class="visually-hidden" for="searchInput">Search applications</label>
+        <input id="searchInput" class="input" type="search" placeholder="Search applications..." autocomplete="off">
+        <label class="checkbox-wrap explorer-regex-option">
+            <input type="checkbox" id="regexMode">
+            <span>Regex Search</span>
+        </label>
+        <label class="field-label date-source-field" for="dateFilterField">
+            <span>Date Filter Based On</span>
+            <select id="dateFilterField" class="input">
+                <option value="date">Assessment Activity Date</option>
+                <option value="dueDate">Due On</option>
+            </select>
+        </label>
         <div class="grid-2">
+            <label class="field-label" for="dateStartFilter">
+                <span>From Date</span>
+                <input type="date" id="dateStartFilter" class="input">
+            </label>
+            <label class="field-label" for="dateEndFilter">
+                <span>To Date</span>
+                <input type="date" id="dateEndFilter" class="input">
+            </label>
+        </div>
+        <div class="grid-2 explorer-secondary-filters">
+            <label class="visually-hidden" for="assessmentStatusFilter">Assessment status</label>
             <select id="assessmentStatusFilter" class="input">
                 <option value="">All Statuses</option>
-                <option value="Incomplete">Incomplete</option>
                 <option value="Completed">Completed</option>
+                <option value="Incomplete">Incomplete</option>
             </select>
-            <select id="ownerFilter" class="input">
-                <option value="">All Owners</option>
-            </select>
+            <div class="manager-search-select">
+                <label class="visually-hidden" for="ownerSearchInput">Application owner</label>
+                <input id="ownerSearchInput" class="input" type="search" placeholder="All Application Owners" autocomplete="off" role="combobox" aria-autocomplete="list" aria-controls="ownerOptions" aria-expanded="false">
+                <div id="ownerOptions" class="manager-option-list hidden" role="listbox" aria-label="Application owners"></div>
+            </div>
         </div>
-        <div class="grid-2" style="margin-top: 8px;">
-            <input type="date" id="dateStartFilter" class="input" title="Start Date">
-            <input type="date" id="dateEndFilter" class="input" title="End Date">
-        </div>
-        <button id="clearFiltersBtn" class="btn-secondary" style="width: 100%; margin-top: 4px;">Clear Filters</button>
+        <button id="clearFiltersBtn" class="btn-secondary clear-filters-btn">Clear Filters</button>
     </section>
 
     <!-- SELECTION -->
@@ -85,33 +108,85 @@
             <button id="selectAllBtn" class="btn-secondary">Select All</button>
             <button id="clearSelectionBtn" class="btn-secondary">Clear</button>
         </div>
-        <div id="assessmentList" class="assessment-list"></div>
+        <div id="assessmentList" class="assessment-list" role="list" aria-label="Assessments"></div>
     </section>
 
-    <!-- VALIDATION -->
+    <!-- AUTOMATION -->
     <section class="card">
-        <button id="validateBtn" class="btn-primary">Validate Selected</button>
-        <button id="cancelBtn" class="btn-danger hidden">Cancel Validation</button>
-        <div id="progressContainer" class="hidden">
+        <div class="card-title">Automation</div>
+        <div class="automation-actions">
+            <button id="validateBtn" class="btn-primary">Validate Selected</button>
+            <button id="reviewBtn" class="btn-secondary action-btn">Review Selected</button>
+        </div>
+        <button id="cancelValidationBtn" class="btn-danger hidden">Cancel Validation</button>
+        <button id="cancelReviewBtn" class="btn-danger hidden">Cancel Review</button>
+        <div id="progressContainer" class="progress-panel hidden" role="status" aria-live="polite">
             <div id="progressText" class="progress-text">Starting...</div>
-            <div class="progress-bar"><div id="progressFill" class="progress-fill"></div></div>
+            <div class="progress-context" aria-live="polite">
+                <span id="progressCount">0 of 0 completed</span>
+                <span id="progressElapsed">Time elapsed: 0s</span>
+                <span id="progressRemaining">Estimated remaining: Calculating...</span>
+            </div>
+            <div id="progressBar" class="progress-bar" role="progressbar" aria-label="Operation progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div id="progressFill" class="progress-fill"></div></div>
         </div>
     </section>
 
     <!-- RESULTS -->
     <section class="card">
         <div class="card-title-row">
-            <span>Validation Results</span>
+            <span>Results</span>
             <div class="results-actions">
                 <button id="clearResultsBtn" class="btn-secondary hidden">Clear Results</button>
             </div>
         </div>
-        <div id="resultsContainer" class="results-container"></div>
+        <div class="tab-list" role="tablist" aria-label="Result type">
+            <button id="validationResultsTab" class="tab-btn active" role="tab" aria-selected="true" aria-controls="validationResultsPanel" tabindex="0" data-results-tab="validation">Validation Results</button>
+            <button id="reviewResultsTab" class="tab-btn" role="tab" aria-selected="false" aria-controls="reviewResultsPanel" tabindex="-1" data-results-tab="review">Review Results</button>
+        </div>
+        <div id="validationResultsPanel" role="tabpanel" aria-labelledby="validationResultsTab"><div id="resultsContainer" class="results-container"><div class="empty-state">No validation results yet.</div></div></div>
+        <div id="reviewResultsPanel" class="hidden" role="tabpanel" aria-labelledby="reviewResultsTab"><div id="reviewResultsContainer" class="results-container"><div class="empty-state">No review results yet.</div></div></div>
     </section>
 </div>
 
+<div id="reviewNotesModal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="reviewNotesTitle">
+    <div class="modal-panel review-modal-panel" tabindex="-1">
+        <div class="modal-header">
+            <div><div class="eyebrow">ACP Review</div><h2 id="reviewNotesTitle">Review Notes</h2></div>
+            <button id="closeReviewNotesBtn" class="icon-btn small-icon-btn" title="Close">×</button>
+        </div>
+        <div class="review-toolbar">
+            <label class="visually-hidden" for="reviewSearchInput">Search review notes</label>
+            <input id="reviewSearchInput" class="input" type="search" placeholder="Search review notes..." autocomplete="off">
+            <label class="visually-hidden" for="reviewStateFilter">Filter review status</label>
+            <select id="reviewStateFilter" class="input">
+                <option value="">All statuses</option>
+                <option value="CORRECT">Correct</option>
+                <option value="PARTIAL">Partial</option>
+                <option value="INCORRECT">Incorrect</option>
+                <option value="MISSING">Missing</option>
+                <option value="NOT_APPLICABLE">Not applicable</option>
+                <option value="NEEDS_VERIFICATION">Needs verification</option>
+            </select>
+            <span id="reviewMatchCount" class="settings-muted" aria-live="polite"></span>
+        </div>
+        <div class="tab-list" role="tablist" aria-label="Review analysis type">
+            <button id="checkpointAnalysisTab" class="tab-btn active" role="tab" aria-selected="true" aria-controls="checkpointAnalysisPanel" tabindex="0" data-review-tab="checkpoint">Checkpoint-wise Analysis</button>
+            <button id="questionAnalysisTab" class="tab-btn" role="tab" aria-selected="false" aria-controls="questionAnalysisPanel" tabindex="-1" data-review-tab="question">Question-wise Analysis</button>
+        </div>
+        <div id="checkpointAnalysisPanel" class="analysis-list" role="tabpanel" aria-labelledby="checkpointAnalysisTab"></div>
+        <div id="questionAnalysisPanel" class="analysis-list hidden" role="tabpanel" aria-labelledby="questionAnalysisTab"></div>
+    </div>
+</div>
+
+<div id="newQuestionsModal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="newQuestionsTitle">
+    <div class="modal-panel" tabindex="-1">
+        <div class="modal-header"><h2 id="newQuestionsTitle">New Questions</h2><button id="closeNewQuestionsBtn" class="icon-btn small-icon-btn" title="Close">×</button></div>
+        <div id="newQuestionsContent" class="empty-state">New-question generation is reserved for the next implementation phase.</div>
+    </div>
+</div>
+
 <div id="settingsModal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
-    <div class="modal-panel">
+    <div class="modal-panel" tabindex="-1">
         <div class="modal-header">
             <div>
                 <div class="eyebrow">Extension Configuration</div>

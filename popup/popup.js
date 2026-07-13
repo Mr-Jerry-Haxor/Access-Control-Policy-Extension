@@ -9,11 +9,13 @@ import {
     getSelectedAcps,
     saveSelectedAcps,
     getAllResults,
+    getAllReviewResults,
+    saveReviewResult,
     clearResults,
+    clearReviewResults,
     getStartupBehavior,
     saveStartupBehavior
 } from "../storage/storage.js";
-import { searchAcps } from "./popupUtils.js";
 
 let allAcps = [];
 let filteredAcps = [];
@@ -21,7 +23,16 @@ let selectedIds = [];
 let pollInterval = null;
 let bcaiModels = [];
 let selectedModelId = null;
-let startupBehavior = 'refreshOnOpen';
+let startupBehavior = 'restoreCached';
+let activeReviewResult = null;
+let activeReviewAssessmentId = null;
+let activeReviewTitle = null;
+let activeReviewTab = 'checkpoint';
+let lastFocusedElement = null;
+let noticeTimer = null;
+let automationBusy = false;
+let applicationOwners = [];
+let selectedApplicationOwner = '';
 
 const $ = id => document.getElementById(id);
 
@@ -39,7 +50,8 @@ async function initialize() {
     await loadModelConfiguration();
     attachEvents();
     updateSelectedCount();
-    loadExistingResults();
+    await loadExistingResults();
+    await resumeActiveOperation();
 }
 
 function attachEvents() {
@@ -56,15 +68,41 @@ function attachEvents() {
     $("selectAllBtn").addEventListener("click", handleSelectAll);
     $("clearSelectionBtn").addEventListener("click", handleClearSelection);
     $("validateBtn").addEventListener("click", startValidation);
-    $("cancelBtn").addEventListener("click", cancelValidation);
+    $("reviewBtn").addEventListener("click", startReview);
+    $("cancelValidationBtn").addEventListener("click", cancelValidation);
+    $("cancelReviewBtn").addEventListener("click", cancelReview);
     $("clearFiltersBtn").addEventListener("click", clearFilters);
     $("clearResultsBtn").addEventListener("click", clearResultsAndUI);
+    $("closeReviewNotesBtn").addEventListener("click", closeReviewNotes);
+    $("closeNewQuestionsBtn").addEventListener("click", () => closeModal($("newQuestionsModal")));
+    $("reviewSearchInput").addEventListener("input", renderActiveReviewAnalysis);
+    $("reviewStateFilter").addEventListener("change", renderActiveReviewAnalysis);
+    document.querySelectorAll('[data-results-tab]').forEach(button => button.addEventListener('click', switchResultsTab));
+    document.querySelectorAll('[data-review-tab]').forEach(button => button.addEventListener('click', switchReviewNotesTab));
+    document.querySelectorAll('[role="tablist"]').forEach(tabList => tabList.addEventListener('keydown', handleTabKeydown));
+    document.addEventListener('keydown', handleGlobalKeydown);
+    [$("reviewNotesModal"), $("newQuestionsModal")].forEach(modal => modal.addEventListener('click', event => {
+        if (event.target === modal) closeModal(modal);
+    }));
 
     $("searchInput").addEventListener("input", applyFilters);
+    $("regexMode").addEventListener("change", applyFilters);
+    $("dateFilterField").addEventListener("change", applyFilters);
     $("assessmentStatusFilter").addEventListener("change", applyFilters);
-    $("ownerFilter").addEventListener("change", applyFilters);
     $("dateStartFilter").addEventListener("change", applyFilters);
     $("dateEndFilter").addEventListener("change", applyFilters);
+    $("ownerSearchInput").addEventListener("focus", showOwnerOptions);
+    $("ownerSearchInput").addEventListener("input", () => {
+        selectedApplicationOwner = '';
+        updateOwnerOptions();
+        showOwnerOptions();
+        applyFilters();
+    });
+    $("ownerSearchInput").addEventListener("keydown", handleOwnerSearchKeydown);
+    $("ownerOptions").addEventListener("keydown", handleOwnerOptionKeydown);
+    document.addEventListener("click", event => {
+        if (!event.target.closest('.manager-search-select')) hideOwnerOptions();
+    });
 }
 
 // ==========================================
@@ -108,12 +146,12 @@ async function loadModelConfiguration({ force = false } = {}) {
 }
 
 function openSettingsModal() {
-    $("settingsModal").classList.remove("hidden");
+    openModal($("settingsModal"));
     renderModelDetails();
 }
 
 function closeSettingsModal() {
-    $("settingsModal").classList.add("hidden");
+    closeModal($("settingsModal"));
 }
 
 function handleSettingsBackdropClick(event) {
@@ -223,23 +261,28 @@ function renderAssessments() {
     const container = $("assessmentList");
     container.innerHTML = "";
 
+    if (!filteredAcps.length) {
+        container.innerHTML = '<div class="empty-state empty-state-panel">No assessments match the current filters.</div>';
+        return;
+    }
+
     filteredAcps.forEach(acp => {
+        const status = getAssessmentStatus(acp);
         const row = document.createElement("div");
-        row.className = "assessment-row";
-        const dateLabel = acp.status === 'Completed'
-            ? `Completed: ${acp.date ? new Date(acp.date).toLocaleDateString() : 'N/A'}`
-            : `Initiated: ${acp.date ? new Date(acp.date).toLocaleDateString() : 'N/A'} | Due: ${acp.dueDate ? new Date(acp.dueDate).toLocaleDateString() : 'N/A'}`;
+        row.className = `assessment-row ${status.className}`;
+        row.setAttribute('role', 'listitem');
 
         row.innerHTML = `
-            <input type="checkbox" class="assessment-checkbox" data-id="${acp.assessmentId}" ${selectedIds.includes(acp.assessmentId) ? "checked" : ""}>
+            <input type="checkbox" class="assessment-checkbox" data-id="${acp.assessmentId}" aria-label="Select ${escapeHtml(acp.title || `assessment ${acp.assessmentId}`)}" ${selectedIds.includes(acp.assessmentId) ? "checked" : ""}>
             <div class="assessment-meta">
-                <div class="asset-name">${acp.title || "No Title"}</div>
-                <div class="asset-sub">ID: ${acp.assessmentId} | Owner: ${acp.owner || "N/A"}</div>
-                <div class="asset-details" style="font-size: 0.85em; color: #666; margin-top: 2px;">
-                    ${dateLabel}
+                <div class="asset-name">
+                    <span>${escapeHtml(acp.title || "No Title")}</span>
+                    <span class="status-pill ${status.className}">${escapeHtml(status.label)}</span>
                 </div>
+                <div class="asset-sub">ID: ${escapeHtml(acp.assessmentId)} &bull; ${escapeHtml(getAssessmentLifecycle(acp))} &bull; ${escapeHtml(acp.owner || "N/A")}</div>
+                <div class="asset-sub date-info">${assessmentDateInfoHtml(acp)}</div>
+                <div class="asset-sub status-detail">${escapeHtml(status.detail)}</div>
             </div>
-            <div class="status-pill status-${acp.status?.toLowerCase() || 'pending'}">${acp.status || 'Pending'}</div>
         `;
         container.appendChild(row);
     });
@@ -247,7 +290,7 @@ function renderAssessments() {
     document.querySelectorAll(".assessment-checkbox").forEach(cb => {
         cb.addEventListener("change", (e) => {
             const id = Number(e.target.dataset.id);
-            if (e.target.checked) selectedIds.push(id);
+            if (e.target.checked && !selectedIds.includes(id)) selectedIds.push(id);
             else selectedIds = selectedIds.filter(x => x !== id);
             saveSelectedAcps(selectedIds);
             updateSelectedCount();
@@ -257,6 +300,9 @@ function renderAssessments() {
 
 function updateSelectedCount() {
     $("selectedCount").textContent = `${selectedIds.length} Selected`;
+    $("validateBtn").disabled = selectedIds.length === 0;
+    $("reviewBtn").disabled = selectedIds.length === 0;
+    $("clearSelectionBtn").disabled = selectedIds.length === 0;
 }
 
 // ==========================================
@@ -268,6 +314,7 @@ const STATUS_COLORS = {
     FAIL: { bg: 'rgba(244,164,164,.35)', color: '#7a1b1b', icon: '✗' },
     ERROR: { bg: 'rgba(253,186,116,.35)', color: '#7a3a00', icon: '⚠' },
     WARNING: { bg: 'rgba(253,230,138,.35)', color: '#6b4a00', icon: '!' },
+    REVIEW: { bg: 'rgba(253,230,138,.35)', color: '#6b4a00', icon: '!' },
     'N/A': { bg: 'rgba(203,213,225,.35)', color: '#475569', icon: '–' },
     CANCELLED: { bg: 'rgba(203,213,225,.25)', color: '#64748b', icon: '○' }
 };
@@ -282,6 +329,7 @@ function renderResults(resultsMap) {
     container.innerHTML = "";
 
     if (!resultsMap || Object.keys(resultsMap).length === 0) {
+        container.innerHTML = '<div class="empty-state">No validation results yet.</div>';
         $("clearResultsBtn").classList.add("hidden");
         return;
     }
@@ -292,6 +340,7 @@ function renderResults(resultsMap) {
         const pass = checkpoints.filter(r => r.status === 'PASS').length;
         const fail = checkpoints.filter(r => r.status === 'FAIL').length;
         const errors = checkpoints.filter(r => r.status === 'ERROR').length;
+        const review = checkpoints.filter(r => r.status === 'REVIEW').length;
         const na = checkpoints.filter(r => r.status === 'N/A').length;
         const total = checkpoints.length;
         const title = data.title || `Assessment ${id}`;
@@ -318,10 +367,11 @@ function renderResults(resultsMap) {
                 <span style="font-size:12px;color:#1f6b3a;">✓ ${pass} Pass</span>
                 <span style="font-size:12px;color:#7a1b1b;">✗ ${fail} Fail</span>
                 ${errors > 0 ? `<span style="font-size:12px;color:#7a3a00;">⚠ ${errors} Error</span>` : ''}
+                ${review > 0 ? `<span style="font-size:12px;color:#6b4a00;">! ${review} Review</span>` : ''}
                 <span style="font-size:12px;color:#475569;">– ${na} N/A</span>
             </div>
-            <div style="margin-top:10px; border:1px solid #e8edf5; border-radius:10px; overflow:hidden;">
-                <button class="main-cp-toggle" style="width:100%; display:flex; justify-content:space-between; align-items:center; padding:10px 12px; background:#fafbff; border:none; cursor:pointer; text-align:left;">
+            <div style="margin-top:10px; border:1px solid #e8edf5; border-radius:8px; overflow:hidden;">
+                <button class="main-cp-toggle" aria-expanded="false" style="width:100%; display:flex; justify-content:space-between; align-items:center; padding:10px 12px; background:#fafbff; border:none; cursor:pointer; text-align:left;">
                     <span style="font-size:13px; font-weight:700; color:#374151;">Checkpoints</span>
                     <span class="main-cp-chevron" style="color:#9ca3af; font-size:12px; transition:transform .2s;">▼</span>
                 </button>
@@ -355,6 +405,8 @@ function renderResults(resultsMap) {
                 <div style="font-size:12px; color:#374151;">
                     <strong>Result:</strong> ${escapeHtml(cp.message || 'No message')}
                 </div>
+                ${cp.recommendation ? `<div style="font-size:12px;color:#374151;margin-top:6px;"><strong>Recommendation:</strong> ${escapeHtml(Array.isArray(cp.recommendation) ? cp.recommendation.join(' ') : cp.recommendation)}</div>` : ''}
+                ${cp.requiresHumanVerification ? '<div class="analysis-meta">Human verification required</div>' : ''}
                 ${cp.rawResponse ? `
                     <details style="margin-top:6px;">
                         <summary style="font-size:11px;color:#6b7280;cursor:pointer;">Raw AI Response</summary>
@@ -377,8 +429,216 @@ function renderResults(resultsMap) {
             const isOpen = body.style.display !== 'none';
             body.style.display = isOpen ? 'none' : 'block';
             chevron.style.transform = isOpen ? 'rotate(0deg)' : 'rotate(180deg)';
+            this.setAttribute('aria-expanded', String(!isOpen));
         });
     });
+}
+
+function renderReviewResults(resultsMap) {
+    const container = $("reviewResultsContainer");
+    container.innerHTML = "";
+    if (!resultsMap || !Object.keys(resultsMap).length) {
+        container.innerHTML = '<div class="empty-state">No review results yet.</div>';
+        return;
+    }
+    $("clearResultsBtn").classList.remove("hidden");
+    for (const [id, data] of Object.entries(resultsMap)) {
+        const summary = data.review?.summary || {};
+        const questionStates = summary.questionStates || {};
+        const card = document.createElement('div');
+        card.className = 'result-card';
+        card.innerHTML = `
+            <div class="result-header"><div><strong>${escapeHtml(data.title || `Assessment ${id}`)}</strong><div class="asset-sub">Assessment ID: ${escapeHtml(id)}</div></div><span class="score-pill">${summary.questionCount || 0} Questions</span></div>
+            <div class="review-summary-line">
+                <span class="summary-correct">${questionStates.CORRECT || 0} correct</span>
+                <span>${questionStates.PARTIAL || 0} partial</span>
+                <span class="summary-problem">${(questionStates.INCORRECT || 0) + (questionStates.MISSING || 0)} issues</span>
+                <span>${questionStates.NEEDS_VERIFICATION || 0} verify</span>
+                <span>${summary.questionsWithSuggestions || 0} suggestions</span>
+            </div>
+            <div class="review-result-actions">
+                <button class="btn-secondary new-questions-btn">New Questions</button>
+                <button class="btn-primary review-notes-btn">Review Notes</button>
+            </div>`;
+        card.querySelector('.new-questions-btn').addEventListener('click', () => openNewQuestions(data.review));
+        card.querySelector('.review-notes-btn').addEventListener('click', () => openReviewNotes(data.review, data.title, id));
+        container.appendChild(card);
+    }
+}
+
+function switchResultsTab(event) {
+    updateTabSet('[data-results-tab]', event.currentTarget);
+    const review = event.currentTarget.dataset.resultsTab === 'review';
+    $("validationResultsPanel").classList.toggle('hidden', review);
+    $("reviewResultsPanel").classList.toggle('hidden', !review);
+}
+
+function openReviewNotes(review, title, assessmentId) {
+    activeReviewResult = review || {};
+    activeReviewAssessmentId = assessmentId;
+    activeReviewTitle = title || `Assessment ${assessmentId}`;
+    $("reviewNotesTitle").textContent = `${title || 'ACP'} Review Notes`;
+    $("reviewSearchInput").value = '';
+    $("reviewStateFilter").value = '';
+    renderActiveReviewAnalysis();
+    openModal($("reviewNotesModal"));
+}
+
+function closeReviewNotes() {
+    activeReviewResult = null;
+    activeReviewAssessmentId = null;
+    activeReviewTitle = null;
+    closeModal($("reviewNotesModal"));
+}
+
+function switchReviewNotesTab(event) {
+    updateTabSet('[data-review-tab]', event.currentTarget);
+    const question = event.currentTarget.dataset.reviewTab === 'question';
+    activeReviewTab = question ? 'question' : 'checkpoint';
+    $("checkpointAnalysisPanel").classList.toggle('hidden', question);
+    $("questionAnalysisPanel").classList.toggle('hidden', !question);
+    renderActiveReviewAnalysis();
+}
+
+function renderActiveReviewAnalysis() {
+    if (!activeReviewResult) return;
+    const query = $("reviewSearchInput").value.trim().toLowerCase();
+    const state = $("reviewStateFilter").value;
+    const filterFindings = findings => (findings || []).filter(finding => {
+        if (state && finding.state !== state) return false;
+        if (!query) return true;
+        return JSON.stringify(finding).toLowerCase().includes(query);
+    });
+    const checkpointFindings = filterFindings(activeReviewResult.checkpointAnalysis);
+    const questionFindings = filterFindings(activeReviewResult.questionAnalysis);
+    renderAnalysis($("checkpointAnalysisPanel"), checkpointFindings);
+    renderAnalysis($("questionAnalysisPanel"), questionFindings);
+    const activeCount = activeReviewTab === 'question' ? questionFindings.length : checkpointFindings.length;
+    $("reviewMatchCount").textContent = `${activeCount} finding${activeCount === 1 ? '' : 's'}`;
+}
+
+function renderAnalysis(container, findings) {
+    container.innerHTML = findings.length ? '' : '<div class="empty-state">No analysis is available.</div>';
+    findings.forEach(finding => {
+        const item = document.createElement('details');
+        item.className = 'analysis-item';
+        item.open = finding.state !== 'CORRECT' && finding.state !== 'NOT_APPLICABLE';
+        item.innerHTML = `
+            <summary class="analysis-heading"><span><strong>${escapeHtml(finding.id)}</strong>${finding.name ? `<span class="analysis-title">${escapeHtml(finding.name)}</span>` : ''}</span><span class="review-state state-${String(finding.state).toLowerCase()}">${escapeHtml(finding.state)}</span></summary>
+            <div class="analysis-body">
+                ${renderQuestionEvidence(finding)}
+                ${renderAnalysisField('What is correct', finding.whatIsCorrect)}
+                ${renderAnalysisField('What is wrong or missing', finding.whatIsWrong)}
+                ${renderAnalysisField('Why it matters', finding.whyItMatters)}
+                ${renderAnalysisField('How to improve', finding.howToImprove)}
+                ${renderAnalysisField('Evidence', finding.evidence)}
+                <div class="suggestion-editor">
+                    <div class="suggestion-header"><strong>Suggested answer</strong><button class="icon-btn small-icon-btn copy-suggestion-btn" title="Copy suggested answer" aria-label="Copy suggested answer">⧉</button></div>
+                    <textarea class="suggestion-text input" rows="6" aria-label="Suggested answer" placeholder="No suggestion was generated.">${escapeHtml(finding.suggestedText || '')}</textarea>
+                    <div class="fine-tune-row">
+                        <input class="fine-tune-input input" type="text" aria-label="Fine-tune instruction" placeholder="Describe how to fine-tune this answer...">
+                        <button class="btn-secondary fine-tune-btn">Fine-tune</button>
+                    </div>
+                    <div class="fine-tune-status settings-muted" aria-live="polite"></div>
+                </div>
+                ${renderAnalysisField('Questions for the application team', finding.questionsForApplicationTeam)}
+                <div class="analysis-meta">Confidence: ${Math.round((Number(finding.confidence) || 0) * 100)}%${finding.requiresHumanVerification ? ' | Human verification required' : ''}</div>
+            </div>`;
+        const suggestion = item.querySelector('.suggestion-text');
+        suggestion.addEventListener('change', async () => {
+            finding.suggestedText = suggestion.value;
+            await persistActiveReview();
+        });
+        item.querySelector('.copy-suggestion-btn').addEventListener('click', event => copySuggestedAnswer(suggestion.value, event.currentTarget));
+        item.querySelector('.fine-tune-btn').addEventListener('click', () => fineTuneFinding(finding, item));
+        container.appendChild(item);
+    });
+}
+
+function renderQuestionEvidence(finding) {
+    if (!finding.questionType && !finding.table && finding.answered === undefined) return '';
+    const selected = (finding.selectedOptions || []).flatMap(option => [option.value, option.additionalText]).filter(Boolean);
+    const answer = finding.answerText || selected.join('\n');
+    return `
+        <div class="question-evidence">
+            <div class="question-evidence-meta"><span>${escapeHtml(finding.group || 'General')}</span><span>${escapeHtml(finding.questionType || 'Unknown type')}</span><span>${finding.answered ? 'Answered' : 'No recorded answer'}</span></div>
+            <div class="current-answer"><strong>Current answer</strong><p>${escapeHtml(answer || 'No answer recorded.')}</p></div>
+            ${renderEvidenceTable(finding.table)}
+        </div>`;
+}
+
+function renderEvidenceTable(table) {
+    if (!table?.columns?.length) return '';
+    const rows = table.rows || [];
+    return `<div class="evidence-table-wrap"><table class="evidence-table"><thead><tr>${table.columns.map(column => `<th>${escapeHtml(column.label)}</th>`).join('')}</tr></thead><tbody>${rows.map(row => `<tr>${table.columns.map(column => {
+        const cell = row.cells?.find(candidate => candidate.key === column.key);
+        const values = cell?.values?.map(value => value.value).filter(Boolean) || [];
+        return `<td>${escapeHtml(values.join(', ') || '—')}</td>`;
+    }).join('')}</tr>`).join('')}</tbody></table></div>`;
+}
+
+async function copySuggestedAnswer(text, button) {
+    if (!text.trim()) return showNotice('There is no suggested answer to copy.');
+    try {
+        await navigator.clipboard.writeText(text);
+        const original = button.textContent;
+        button.textContent = '✓';
+        setTimeout(() => { button.textContent = original; }, 1200);
+    } catch (error) {
+        showNotice(`Unable to copy the suggested answer: ${error.message}`, { persistent: true });
+    }
+}
+
+async function fineTuneFinding(finding, item) {
+    const input = item.querySelector('.fine-tune-input');
+    const button = item.querySelector('.fine-tune-btn');
+    const status = item.querySelector('.fine-tune-status');
+    const instruction = input.value.trim();
+    if (!instruction) {
+        status.textContent = 'Enter a short fine-tune instruction.';
+        return;
+    }
+
+    button.disabled = true;
+    input.disabled = true;
+    status.textContent = 'Fine-tuning with BCAI...';
+    try {
+        const response = await chrome.runtime.sendMessage({
+            action: 'FINE_TUNE_REVIEW_SUGGESTION',
+            finding,
+            instruction
+        });
+        if (!response?.success) throw new Error(response?.error || 'Fine-tuning failed.');
+        finding.suggestedText = response.suggestedText;
+        item.querySelector('.suggestion-text').value = response.suggestedText;
+        input.value = '';
+        status.textContent = response.changeSummary || 'Suggested answer updated.';
+        await persistActiveReview();
+    } catch (error) {
+        status.textContent = `Unable to fine-tune: ${error.message}`;
+    } finally {
+        button.disabled = automationBusy;
+        input.disabled = false;
+    }
+}
+
+async function persistActiveReview() {
+    if (!activeReviewAssessmentId || !activeReviewResult) return;
+    await saveReviewResult(activeReviewAssessmentId, activeReviewResult, activeReviewTitle);
+}
+
+function renderAnalysisField(label, value) {
+    const values = Array.isArray(value) ? value : value ? [value] : [];
+    if (!values.length) return '';
+    return `<div class="analysis-field"><strong>${label}</strong>${values.map(item => `<p>${escapeHtml(typeof item === 'string' ? item : JSON.stringify(item))}</p>`).join('')}</div>`;
+}
+
+function openNewQuestions(review) {
+    const questions = review?.newQuestions || [];
+    $("newQuestionsContent").innerHTML = questions.length
+        ? questions.map(question => `<div class="analysis-item">${escapeHtml(typeof question === 'string' ? question : JSON.stringify(question))}</div>`).join('')
+        : 'New-question generation is reserved for the next implementation phase.';
+    openModal($("newQuestionsModal"));
 }
 
 // ==========================================
@@ -400,50 +660,96 @@ async function loadInitialAssessmentData() {
 }
 
 async function refreshData() {
-    const response = await chrome.runtime.sendMessage({ action: "LOAD_ACPS" });
-    if (response && response.success) {
+    const button = $("refreshBtn");
+    button.disabled = true;
+    button.classList.add('is-loading');
+    try {
+        const response = await chrome.runtime.sendMessage({ action: "LOAD_ACPS" });
+        if (!response?.success) throw new Error(response?.error || 'Unknown error');
         allAcps = response.data || [];
         await saveAcps(allAcps);
         populateOwnerFilter();
         applyFilters();
-    } else {
-        alert("Failed to load: " + (response ? response.error : "Unknown error"));
+        showNotice(`Loaded ${allAcps.length} assessment${allAcps.length === 1 ? '' : 's'}.`);
+    } catch (error) {
+        showNotice(`Unable to refresh assessments: ${error.message}`, { persistent: true });
+    } finally {
+        button.disabled = false;
+        button.classList.remove('is-loading');
     }
 }
 
 async function startValidation() {
     const selected = allAcps.filter(x => selectedIds.includes(x.assessmentId));
-    if (!selected.length) return alert("Select assessments first.");
+    if (!selected.length) return showNotice("Select at least one assessment before validating.");
+    setAutomationBusy(true);
 
     $("progressContainer").classList.remove("hidden");
     $("validateBtn").classList.add("hidden");
-    $("cancelBtn").classList.remove("hidden");
+    $("reviewBtn").classList.add("hidden");
+    $("cancelValidationBtn").classList.remove("hidden");
+    resetProgressDisplay(selected.length);
     $("resultsContainer").innerHTML = "";
 
-    await chrome.runtime.sendMessage({ action: "START_VALIDATION", assessments: selected });
+    try {
+        const response = await chrome.runtime.sendMessage({ action: "START_VALIDATION", assessments: selected });
+        if (!response?.started) throw new Error(response?.error || 'Validation did not start.');
+        startPolling('validation');
+    } catch (error) {
+        restoreOperationControls('validation');
+        $("progressContainer").classList.add('hidden');
+        showNotice(`Unable to start validation: ${error.message}`, { persistent: true });
+    }
+}
 
-    // Start polling for progress updates
-    startPolling();
+async function startReview() {
+    const selected = allAcps.filter(x => selectedIds.includes(x.assessmentId));
+    if (!selected.length) return showNotice("Select at least one assessment before reviewing.");
+    setAutomationBusy(true);
+    $("progressContainer").classList.remove("hidden");
+    $("validateBtn").classList.add("hidden");
+    $("reviewBtn").classList.add("hidden");
+    $("cancelReviewBtn").classList.remove("hidden");
+    resetProgressDisplay(selected.length);
+    $("reviewResultsContainer").innerHTML = '<div class="empty-state">Review is running...</div>';
+    try {
+        const response = await chrome.runtime.sendMessage({ action: "START_REVIEW", assessments: selected });
+        if (!response?.started) throw new Error(response?.error || 'Review did not start.');
+        startPolling('review');
+    } catch (error) {
+        restoreOperationControls('review');
+        $("progressContainer").classList.add('hidden');
+        showNotice(`Unable to start review: ${error.message}`, { persistent: true });
+    }
 }
 
 async function cancelValidation() {
-    await chrome.runtime.sendMessage({ action: "CANCEL_VALIDATION" });
-    $("cancelBtn").textContent = "Cancelling...";
-    $("cancelBtn").disabled = true;
+    await requestCancellation('validation');
 }
 
-function startPolling() {
+async function cancelReview() {
+    await requestCancellation('review');
+}
+
+async function requestCancellation(mode) {
+    const button = $(mode === 'review' ? "cancelReviewBtn" : "cancelValidationBtn");
+    try {
+        await chrome.runtime.sendMessage({ action: mode === 'review' ? "CANCEL_REVIEW" : "CANCEL_VALIDATION" });
+        button.textContent = "Cancelling...";
+        button.disabled = true;
+    } catch (error) {
+        showNotice(`Unable to cancel: ${error.message}`, { persistent: true });
+    }
+}
+
+function startPolling(mode = 'validation') {
     if (pollInterval) clearInterval(pollInterval);
 
     pollInterval = setInterval(async () => {
-        const state = await chrome.storage.local.get([
-            'validationProgress',
-            'validationComplete',
-            'validationError',
-            'validationCancelled'
-        ]);
+        const prefix = mode === 'review' ? 'review' : 'validation';
+        const state = await chrome.storage.local.get([`${prefix}Progress`, `${prefix}Complete`, `${prefix}Error`, `${prefix}Cancelled`]);
 
-        const progress = state.validationProgress;
+        const progress = state[`${prefix}Progress`];
         if (progress) {
             const total = progress.total || 1;
             const completed = progress.completed || 0;
@@ -451,34 +757,106 @@ function startPolling() {
 
             $("progressText").textContent = progress.current || 'Working...';
             $("progressFill").style.width = `${pct}%`;
+            $("progressBar").setAttribute('aria-valuenow', String(pct));
+            renderProgressContext(progress);
         }
 
-        if (state.validationComplete) {
+        if (state[`${prefix}Complete`]) {
             clearInterval(pollInterval);
             pollInterval = null;
 
             // Restore buttons
-            $("validateBtn").classList.remove("hidden");
-            $("cancelBtn").classList.add("hidden");
-            $("cancelBtn").textContent = "Cancel Validation";
-            $("cancelBtn").disabled = false;
+            restoreOperationControls(mode);
 
-            if (state.validationCancelled) {
-                $("progressText").textContent = "Validation cancelled.";
-            } else if (state.validationError) {
-                $("progressText").textContent = `Error: ${state.validationError}`;
+            if (state[`${prefix}Cancelled`]) {
+                $("progressText").textContent = `${mode === 'review' ? 'Review' : 'Validation'} cancelled.`;
+            } else if (state[`${prefix}Error`]) {
+                $("progressText").textContent = `Error: ${state[`${prefix}Error`]}`;
             } else {
-                $("progressText").textContent = "Validation complete!";
+                $("progressText").textContent = `${mode === 'review' ? 'Review' : 'Validation'} complete!`;
                 $("progressFill").style.width = "100%";
+                $("progressBar").setAttribute('aria-valuenow', '100');
             }
 
             // Load and render the results
-            const results = await getAllResults();
-            if (Object.keys(results).length > 0) {
-                renderResults(results);
-            }
+            if (mode === 'review') renderReviewResults(await getAllReviewResults());
+            else renderResults(await getAllResults());
+            activateResultsTab(mode);
         }
     }, 800);
+}
+
+function restoreOperationControls(mode) {
+    $("validateBtn").classList.remove("hidden");
+    $("reviewBtn").classList.remove("hidden");
+    setAutomationBusy(false);
+    const cancelButton = $(mode === 'review' ? "cancelReviewBtn" : "cancelValidationBtn");
+    cancelButton.classList.add("hidden");
+    cancelButton.textContent = mode === 'review' ? "Cancel Review" : "Cancel Validation";
+    cancelButton.disabled = false;
+}
+
+function activateResultsTab(mode) {
+    const review = mode === 'review';
+    const button = $(review ? 'reviewResultsTab' : 'validationResultsTab');
+    updateTabSet('[data-results-tab]', button);
+    $("validationResultsPanel").classList.toggle('hidden', review);
+    $("reviewResultsPanel").classList.toggle('hidden', !review);
+}
+
+async function resumeActiveOperation() {
+    const state = await chrome.storage.local.get([
+        'validationProgress', 'validationComplete',
+        'reviewProgress', 'reviewComplete'
+    ]);
+    const mode = state.reviewProgress && state.reviewComplete === false
+        ? 'review'
+        : state.validationProgress && state.validationComplete === false
+            ? 'validation'
+            : null;
+    if (!mode) return;
+
+    const progress = state[`${mode}Progress`];
+    $("progressContainer").classList.remove('hidden');
+    $("validateBtn").classList.add('hidden');
+    $("reviewBtn").classList.add('hidden');
+    setAutomationBusy(true);
+    $(mode === 'review' ? "cancelReviewBtn" : "cancelValidationBtn").classList.remove('hidden');
+    $("progressText").textContent = progress.current || 'Working...';
+    const pct = Math.round(((progress.completed || 0) / (progress.total || 1)) * 100);
+    $("progressFill").style.width = `${pct}%`;
+    $("progressBar").setAttribute('aria-valuenow', String(pct));
+    renderProgressContext(progress);
+    startPolling(mode);
+}
+
+function resetProgressDisplay(total) {
+    $("progressText").textContent = 'Starting...';
+    $("progressCount").textContent = `0 of ${total} completed`;
+    $("progressElapsed").textContent = 'Time elapsed: 0s';
+    $("progressRemaining").textContent = 'Estimated remaining: Calculating...';
+    $("progressFill").style.width = '0%';
+    $("progressBar").setAttribute('aria-valuenow', '0');
+}
+
+function renderProgressContext(progress) {
+    const completed = Number(progress.completed) || 0;
+    const total = Number(progress.total) || 0;
+    const elapsedMs = Math.max(0, Date.now() - (Number(progress.startedAt) || Date.now()));
+    const remainingMs = completed > 0 && completed < total
+        ? (elapsedMs / completed) * (total - completed)
+        : completed >= total && total > 0 ? 0 : null;
+
+    $("progressCount").textContent = `${completed} of ${total} ${progress.mode === 'review' ? 'reviewed' : 'validated'}`;
+    $("progressElapsed").textContent = `Time elapsed: ${formatDuration(elapsedMs)}`;
+    $("progressRemaining").textContent = `Estimated remaining: ${remainingMs == null ? 'Calculating...' : formatDuration(remainingMs)}`;
+}
+
+function formatDuration(milliseconds) {
+    const totalSeconds = Math.max(0, Math.round(milliseconds / 1000));
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return minutes ? `${minutes}m ${seconds}s` : `${seconds}s`;
 }
 
 async function loadExistingResults() {
@@ -486,6 +864,7 @@ async function loadExistingResults() {
     if (Object.keys(results).length > 0) {
         renderResults(results);
     }
+    renderReviewResults(await getAllReviewResults());
 }
 
 // ==========================================
@@ -493,20 +872,29 @@ async function loadExistingResults() {
 // ==========================================
 
 function applyFilters() {
-    filteredAcps = searchAcps(allAcps, $("searchInput").value);
+    const searchPattern = getAssessmentSearchPattern();
+    filteredAcps = searchPattern
+        ? allAcps.filter(acp => searchPattern.test(getAssessmentSearchText(acp)))
+        : [...allAcps];
     const status = $("assessmentStatusFilter").value;
     if (status) filteredAcps = filteredAcps.filter(a => a.status === status);
 
-    const owner = $("ownerFilter").value;
-    if (owner) filteredAcps = filteredAcps.filter(a => a.owner === owner);
+    if (selectedApplicationOwner) {
+        filteredAcps = filteredAcps.filter(a => a.owner === selectedApplicationOwner);
+    } else {
+        const ownerPattern = getOwnerSearchPattern();
+        if (ownerPattern) filteredAcps = filteredAcps.filter(a => ownerPattern.test(a.owner || ''));
+    }
 
     const startDate = $("dateStartFilter").value ? new Date($("dateStartFilter").value) : null;
     const endDate = $("dateEndFilter").value ? new Date($("dateEndFilter").value) : null;
+    const dateField = $("dateFilterField").value || 'date';
 
     if (startDate || endDate) {
         filteredAcps = filteredAcps.filter(a => {
-            if (!a.date) return false;
-            const aDate = new Date(a.date);
+            if (!a[dateField]) return false;
+            const aDate = new Date(a[dateField]);
+            if (Number.isNaN(aDate.getTime())) return false;
             if (startDate && aDate < startDate) return false;
             if (endDate) {
                 const end = new Date(endDate);
@@ -522,23 +910,117 @@ function applyFilters() {
 
 function clearFilters() {
     $("searchInput").value = "";
+    $("regexMode").checked = false;
+    $("searchInput").removeAttribute('aria-invalid');
     $("assessmentStatusFilter").value = "";
-    $("ownerFilter").value = "";
+    $("ownerSearchInput").value = "";
+    $("dateFilterField").value = "date";
     $("dateStartFilter").value = "";
     $("dateEndFilter").value = "";
+    selectedApplicationOwner = '';
+    updateOwnerOptions();
+    hideOwnerOptions();
     filteredAcps = [...allAcps];
     renderAssessments();
 }
 
 async function clearResultsAndUI() {
-    await clearResults();
-    $("resultsContainer").innerHTML = "";
+    await Promise.all([clearResults(), clearReviewResults()]);
+    $("resultsContainer").innerHTML = '<div class="empty-state">No validation results yet.</div>';
+    $("reviewResultsContainer").innerHTML = '<div class="empty-state">No review results yet.</div>';
     $("clearResultsBtn").classList.add("hidden");
 }
 
+function showNotice(message, { persistent = false } = {}) {
+    const notice = $("uiNotice");
+    notice.textContent = message;
+    notice.classList.remove('hidden');
+    if (noticeTimer) clearTimeout(noticeTimer);
+    if (!persistent) noticeTimer = setTimeout(() => notice.classList.add('hidden'), 3500);
+}
+
+function setAutomationBusy(busy) {
+    automationBusy = busy;
+    const controlIds = [
+        'refreshBtn', 'checkPrereqBtn', 'selectAllBtn', 'clearSelectionBtn',
+        'searchInput', 'regexMode', 'dateFilterField', 'assessmentStatusFilter',
+        'ownerSearchInput', 'dateStartFilter', 'dateEndFilter', 'clearFiltersBtn'
+    ];
+    controlIds.forEach(id => { const element = $(id); if (element) element.disabled = busy; });
+    document.querySelectorAll('.assessment-checkbox').forEach(checkbox => { checkbox.disabled = busy; });
+    if (!busy) updateSelectedCount();
+}
+
+function updateTabSet(selector, activeButton) {
+    document.querySelectorAll(selector).forEach(button => {
+        const active = button === activeButton;
+        button.classList.toggle('active', active);
+        button.setAttribute('aria-selected', String(active));
+        button.tabIndex = active ? 0 : -1;
+    });
+}
+
+function handleTabKeydown(event) {
+    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+    const tabs = [...event.currentTarget.querySelectorAll('[role="tab"]')];
+    const currentIndex = tabs.indexOf(document.activeElement);
+    if (currentIndex < 0) return;
+    event.preventDefault();
+    let nextIndex = currentIndex;
+    if (event.key === 'ArrowRight') nextIndex = (currentIndex + 1) % tabs.length;
+    if (event.key === 'ArrowLeft') nextIndex = (currentIndex - 1 + tabs.length) % tabs.length;
+    if (event.key === 'Home') nextIndex = 0;
+    if (event.key === 'End') nextIndex = tabs.length - 1;
+    tabs[nextIndex].focus();
+    tabs[nextIndex].click();
+}
+
+function openModal(modal) {
+    lastFocusedElement = document.activeElement;
+    modal.classList.remove('hidden');
+    document.body.classList.add('modal-open');
+    requestAnimationFrame(() => modal.querySelector('.modal-panel')?.focus());
+}
+
+function closeModal(modal) {
+    modal.classList.add('hidden');
+    if (!document.querySelector('.modal-backdrop:not(.hidden)')) document.body.classList.remove('modal-open');
+    if (lastFocusedElement?.isConnected) lastFocusedElement.focus();
+    lastFocusedElement = null;
+}
+
+function handleGlobalKeydown(event) {
+    const modal = document.querySelector('.modal-backdrop:not(.hidden)');
+    if (!modal) return;
+    if (event.key === 'Escape') {
+        event.preventDefault();
+        if (modal === $("reviewNotesModal")) closeReviewNotes();
+        else if (modal === $("settingsModal")) closeSettingsModal();
+        else closeModal(modal);
+        return;
+    }
+    if (event.key !== 'Tab') return;
+    const focusable = [...modal.querySelectorAll('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])')];
+    if (!focusable.length) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+    }
+}
+
 async function checkPrereqSessions() {
-    const resp = await chrome.runtime.sendMessage({ action: "CHECK_PREREQUISITES" });
-    if (resp?.prerequisites) {
+    const button = $("checkPrereqBtn");
+    button.disabled = true;
+    button.textContent = 'Checking...';
+    document.querySelectorAll('.prereq-item .signal').forEach(signal => signal.className = 'signal signal-checking');
+    try {
+        const resp = await chrome.runtime.sendMessage({ action: "CHECK_PREREQUISITES" });
+        if (!resp?.prerequisites) throw new Error('Session check returned no result.');
         let allPassed = true;
         resp.prerequisites.checks.forEach(check => {
             const el = document.querySelector(`.prereq-item[data-site="${check.id}"] .signal`);
@@ -556,6 +1038,12 @@ async function checkPrereqSessions() {
             summary.textContent = allPassed ? "All prerequisites satisfied." : "Some prerequisites are missing.";
             summary.style.color = allPassed ? "inherit" : "#e53e3e";
         }
+    } catch (error) {
+        showNotice(`Unable to check sessions: ${error.message}`, { persistent: true });
+        document.querySelectorAll('.prereq-item .signal').forEach(signal => signal.className = 'signal signal-unknown');
+    } finally {
+        button.disabled = automationBusy;
+        button.textContent = 'Check Sessions';
     }
 }
 
@@ -574,14 +1062,138 @@ function handleClearSelection() {
 }
 
 function populateOwnerFilter() {
-    const owners = [...new Set(allAcps.map(a => a.owner))].filter(Boolean);
-    const select = $("ownerFilter");
-    select.innerHTML = '<option value="">All Owners</option>';
-    owners.forEach(o => {
-        const opt = document.createElement("option");
-        opt.value = o; opt.textContent = o;
-        select.appendChild(opt);
+    applicationOwners = [...new Set(allAcps.map(a => a.owner))].filter(Boolean).sort((a, b) => a.localeCompare(b));
+    if (selectedApplicationOwner && !applicationOwners.includes(selectedApplicationOwner)) {
+        selectedApplicationOwner = '';
+        $("ownerSearchInput").value = '';
+    }
+    updateOwnerOptions();
+}
+
+function renderOwnerOptions(owners) {
+    const container = $("ownerOptions");
+    container.innerHTML = '';
+    const options = [{ value: '', label: 'All Application Owners' }, ...owners.map(owner => ({ value: owner, label: owner }))];
+    options.forEach(({ value, label }) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'manager-option';
+        button.setAttribute('role', 'option');
+        button.setAttribute('aria-selected', String(value === selectedApplicationOwner));
+        button.textContent = label;
+        button.addEventListener('click', () => selectApplicationOwner(value));
+        container.appendChild(button);
     });
+}
+
+function selectApplicationOwner(owner) {
+    selectedApplicationOwner = owner;
+    $("ownerSearchInput").value = owner;
+    hideOwnerOptions();
+    applyFilters();
+}
+
+function getOwnerSearchPattern() {
+    const value = $("ownerSearchInput").value.trim();
+    if (!value) return null;
+    try { return new RegExp(value, 'i'); } catch { return new RegExp(escapeRegExp(value), 'i'); }
+}
+
+function updateOwnerOptions() {
+    const pattern = getOwnerSearchPattern();
+    renderOwnerOptions(pattern ? applicationOwners.filter(owner => pattern.test(owner)) : applicationOwners);
+}
+
+function showOwnerOptions() {
+    updateOwnerOptions();
+    $("ownerOptions").classList.remove('hidden');
+    $("ownerSearchInput").setAttribute('aria-expanded', 'true');
+}
+
+function hideOwnerOptions() {
+    $("ownerOptions").classList.add('hidden');
+    $("ownerSearchInput").setAttribute('aria-expanded', 'false');
+}
+
+function handleOwnerSearchKeydown(event) {
+    if (event.key === 'Escape') return hideOwnerOptions();
+    if (event.key === 'ArrowDown') {
+        event.preventDefault();
+        showOwnerOptions();
+        $("ownerOptions").querySelector('.manager-option')?.focus();
+    }
+}
+
+function handleOwnerOptionKeydown(event) {
+    const options = [...$("ownerOptions").querySelectorAll('.manager-option')];
+    const activeIndex = options.indexOf(document.activeElement);
+    if (activeIndex < 0) return;
+    if (event.key === 'Escape') {
+        event.preventDefault();
+        hideOwnerOptions();
+        $("ownerSearchInput").focus();
+        return;
+    }
+    if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
+    event.preventDefault();
+    let nextIndex = activeIndex;
+    if (event.key === 'ArrowDown') nextIndex = Math.min(activeIndex + 1, options.length - 1);
+    if (event.key === 'ArrowUp') nextIndex = Math.max(activeIndex - 1, 0);
+    if (event.key === 'Home') nextIndex = 0;
+    if (event.key === 'End') nextIndex = options.length - 1;
+    options[nextIndex]?.focus();
+}
+
+function getAssessmentSearchPattern() {
+    const value = $("searchInput").value.trim();
+    if (!value) {
+        $("searchInput").removeAttribute('aria-invalid');
+        return null;
+    }
+    try {
+        const pattern = new RegExp($("regexMode").checked ? value : escapeRegExp(value), 'i');
+        $("searchInput").removeAttribute('aria-invalid');
+        return pattern;
+    } catch {
+        $("searchInput").setAttribute('aria-invalid', 'true');
+        return /$a/;
+    }
+}
+
+function getAssessmentSearchText(acp) {
+    return [acp.assessmentId, acp.title, acp.owner, acp.status, getAssessmentLifecycle(acp)].filter(Boolean).join(' ');
+}
+
+function getAssessmentLifecycle(acp) {
+    return acp.raw?.lifeCycle || acp.raw?.lifecycle || acp.raw?.assessmentLifeCycle || acp.status || 'N/A';
+}
+
+function assessmentDateInfoHtml(acp) {
+    const dueOn = formatDate(acp.dueDate) || 'N/A';
+    if (acp.status === 'Incomplete') {
+        return `<strong>Incomplete initiated date:</strong> ${escapeHtml(formatDate(acp.date) || 'N/A')} &bull; <strong>Due on:</strong> ${escapeHtml(dueOn)}`;
+    }
+    return `<strong>Due on:</strong> ${escapeHtml(dueOn)} &bull; <strong>Survey Completed (Last):</strong> ${escapeHtml(formatDate(acp.date) || 'N/A')}`;
+}
+
+function getAssessmentStatus(acp) {
+    if (acp.status === 'Incomplete') {
+        const initiatedBy = acp.raw?.incompleteInitiatedByName || acp.owner || 'N/A';
+        return { label: 'Incomplete', className: 'status-incomplete', detail: `Incomplete mark - Initiated by ${initiatedBy}${acp.date ? ` - ${formatDate(acp.date)}` : ''}` };
+    }
+    const attestedBy = acp.raw?.attestName || acp.owner || 'N/A';
+    return { label: acp.status || 'Completed', className: `status-${(acp.status || 'completed').toLowerCase()}`, detail: `Attested by ${attestedBy}${acp.date ? ` - ${formatDate(acp.date)}` : ''}` };
+}
+
+function formatDate(value) {
+    if (!value) return '';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return String(value);
+    return date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: '2-digit' });
+}
+
+function escapeRegExp(value) {
+    return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 function escapeHtml(str) {

@@ -11,6 +11,7 @@
     fail, 
     warning, 
     skip,
+    needsReview,
     getAnswer, 
     getAnswerText,
     asArray,

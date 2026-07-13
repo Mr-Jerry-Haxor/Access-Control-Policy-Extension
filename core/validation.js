@@ -7,6 +7,8 @@
 import { getAllCheckpoints } from './checkpoint.js';
 import { sendPrompt, extractJson } from '../ai/aiService.js';
 import { logger } from '../utils/utils.js';
+import { ACP_REVIEW_GUIDANCE } from '../knowledge/acpReviewGuidance.js';
+import { CHECKPOINT_EVIDENCE } from '../knowledge/checkpointEvidenceMap.js';
 
 // ============================================================
 // AI Checkpoint Runner
@@ -21,10 +23,10 @@ import { logger } from '../utils/utils.js';
  * @returns {Promise<{ status: string, reason: string }>}
  */
 export async function runAiCheckpoint(checkpoint, context) {
-    const prompt = checkpoint.buildPrompt(context);
+    const checkpointPrompt = checkpoint.buildPrompt(context);
     
     // Checkpoint opted out — missing data
-    if (!prompt) {
+    if (!checkpointPrompt) {
         return {
             status: 'N/A',
             reason: 'Required context data is missing for this checkpoint.'
@@ -32,6 +34,11 @@ export async function runAiCheckpoint(checkpoint, context) {
     }
 
     logger.info(`Running AI checkpoint ${checkpoint.id}`);
+
+    const normalizedEvidence = (CHECKPOINT_EVIDENCE[checkpoint.id] || [])
+        .map(id => context.normalizedQuestionMap?.get(String(id)))
+        .filter(Boolean);
+    const prompt = `${checkpointPrompt}\n\nACP POLICY AND AUTHORING GUIDANCE:\n${ACP_REVIEW_GUIDANCE}\n\nNORMALIZED CHECKPOINT EVIDENCE:\n${JSON.stringify(normalizedEvidence)}\n\nReturn JSON only with status (PASS, FAIL, NA, or REVIEW), reason, evidence, recommendation, confidence, and requiresHumanVerification. Use REVIEW rather than PASS when authoritative external evidence is unavailable.`;
 
     let rawResponse;
     try {
@@ -59,9 +66,14 @@ export async function runAiCheckpoint(checkpoint, context) {
     }
 
     // Normalize: accept status/reason or status/message
+    const parsedStatus = String(parsed.status || 'FAIL').toUpperCase();
     return {
-        status: parsed.status || 'FAIL',
-        reason: parsed.reason || parsed.message || 'No reason provided.'
+        status: parsedStatus === 'NA' ? 'N/A' : parsedStatus,
+        reason: parsed.reason || parsed.message || 'No reason provided.',
+        evidence: parsed.evidence || [],
+        recommendation: parsed.recommendation || parsed.howToImprove || parsed.how_to_improve || '',
+        confidence: Number(parsed.confidence) || 0,
+        requiresHumanVerification: parsed.requiresHumanVerification ?? parsed.requires_human_verification ?? false
     };
 }
 
@@ -77,7 +89,7 @@ export async function runAiCheckpoint(checkpoint, context) {
  * @param {Function} [isCancelled] - async function returning true if cancelled
  * @returns {Promise<Array>} Array of checkpoint result objects
  */
-export async function validateContext(context, isCancelled) {
+export async function validateContext(context, isCancelled, onProgress) {
     const checkpoints = getAllCheckpoints();
     const results = [];
 
@@ -96,6 +108,7 @@ export async function validateContext(context, isCancelled) {
         }
 
         try {
+            await onProgress?.(`Validating checkpoint ${checkpoint.id}: ${checkpoint.name}`);
             let result;
 
             if (checkpoint.type === 'AI') {
@@ -108,6 +121,10 @@ export async function validateContext(context, isCancelled) {
                     message: aiResult.reason,
                     rawResponse: aiResult.rawResponse || null,
                     isAiError: aiResult.isAiError || false,
+                    evidence: aiResult.evidence || [],
+                    recommendation: aiResult.recommendation || '',
+                    confidence: aiResult.confidence || 0,
+                    requiresHumanVerification: aiResult.requiresHumanVerification || false,
                     source: 'AI'
                 };
             } else {
@@ -118,6 +135,9 @@ export async function validateContext(context, isCancelled) {
                     category: checkpoint.category || 'General',
                     status: ruleResult.status || 'FAIL',
                     message: ruleResult.message || '',
+                    evidence: ruleResult.evidence || [],
+                    recommendation: ruleResult.recommendation || '',
+                    requiresHumanVerification: ruleResult.requiresHumanVerification || false,
                     source: 'RULE'
                 };
             }

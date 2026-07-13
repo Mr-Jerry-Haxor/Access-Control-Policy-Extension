@@ -1,12 +1,14 @@
-import { skip } from "./utils.js";
+import { needsReview } from "./utils.js";
 
 const ACP4 = {
     id: "ACP4",
     name: "Online Request Form Roles Match",
     category: "Access Roles",
+
+    reviewPrompt: `Review this checkpoint against the supplied ACP context. Return JSON only using the ACP review contract: state, whatIsCorrect, whatIsWrong, whyItMatters, howToImprove, suggestedText, evidence, confidence, requiresHumanVerification, and questionsForApplicationTeam. Identify correct content as well as defects. For every applicable checkpoint, suggestedText is required and must be a complete ACP-ready proposed answer that retains verified facts, corrects defects, and uses [PLACEHOLDER] values for unknown facts. Do not invent facts; use NEEDS_VERIFICATION when authoritative evidence is unavailable.`,
     type: "RULE",
     async validate(context) {
-        return skip(this.id, "STAR/MARS online request-form endpoints were not present in .");
+        return needsReview(this.id, "Authoritative STAR/MARS online request-form evidence is unavailable, so role coverage cannot be verified.");
     }
 };
 

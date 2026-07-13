@@ -150,8 +150,9 @@ export async function loadQuestions(surveyTemplateId) {
 export function buildAnswerMap(answers) {
     const map = new Map();
     for (const answer of answers) {
-        const key = answer?.alternateQuestionId || answer?.questionId;
-        if (key) map.set(key, answer);
+        for (const key of [answer?.alternateQuestionId, answer?.surveyTemplateQuestionId, answer?.questionId]) {
+            if (key != null && key !== '') map.set(String(key), answer);
+        }
     }
     return map;
 }
@@ -164,8 +165,9 @@ export function buildAnswerMap(answers) {
 export function buildQuestionMap(questions) {
     const map = new Map();
     for (const question of questions) {
-        const key = question?.alternateQuestionId || question?.questionId;
-        if (key) map.set(key, question);
+        for (const key of [question?.alternateQuestionId, question?.surveyTemplateQuestionId, question?.questionId, question?.priorVersionQuestionId]) {
+            if (key != null && key !== '') map.set(String(key), question);
+        }
     }
     return map;
 }

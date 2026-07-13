@@ -3,9 +3,10 @@
  * Background service worker for the ACP Validator extension.
  */
 
- import { validateContexts } from './core/validation.js';
+ import { validateContext } from './core/validation.js';
+ import { reviewContext, fineTuneSuggestion } from './core/review.js';
  import { buildContexts } from './core/context.js';
- import { saveResults, clearResults, getBcaiModelsState, saveBcaiModels, saveSelectedBcaiModel } from './storage/storage.js';
+ import { saveResults, clearResults, saveReviewResult, clearReviewResults, getBcaiModelsState, saveBcaiModels, saveSelectedBcaiModel } from './storage/storage.js';
  import { getACPList, getBcaiModels } from './api/apiClient.js';
  import { CONFIG } from './utils/constants.js';
  import { resetConversation } from './ai/aiService.js';
@@ -24,6 +25,23 @@
              runValidationBatch(request.assessments);
              sendResponse({ started: true });
              return false;
+
+         case "START_REVIEW":
+             chrome.storage.local.remove('reviewCancelled');
+             runReviewBatch(request.assessments);
+             sendResponse({ started: true });
+             return false;
+
+         case "CANCEL_REVIEW":
+             chrome.storage.local.set({ reviewCancelled: true });
+             sendResponse({ cancelled: true });
+             return false;
+
+         case "FINE_TUNE_REVIEW_SUGGESTION":
+             fineTuneSuggestion({ finding: request.finding, instruction: request.instruction })
+                 .then(data => sendResponse({ success: true, ...data }))
+                 .catch(err => sendResponse({ success: false, error: err.message }));
+             return true;
 
          case "CANCEL_VALIDATION":
              chrome.storage.local.set({ validationCancelled: true });
@@ -128,16 +146,64 @@
      return !!validationCancelled;
  }
 
+ async function isReviewCancelled() {
+     const { reviewCancelled } = await chrome.storage.local.get('reviewCancelled');
+     return !!reviewCancelled;
+ }
+
+ async function runReviewBatch(assessments) {
+     const total = assessments.length;
+     let completed = 0;
+     const startedAt = Date.now();
+     await clearReviewResults();
+     await chrome.storage.local.set({
+         reviewProgress: { completed: 0, total, mode: 'review', startedAt, current: 'Gathering ACP review context...' },
+         reviewComplete: false,
+         reviewError: null,
+         reviewCancelled: false
+     });
+
+     try {
+         const contexts = await buildContexts(assessments);
+         if (await isReviewCancelled()) {
+             await chrome.storage.local.set({ reviewComplete: true, reviewCancelled: true });
+             return;
+         }
+         await resetConversation();
+         await chrome.storage.local.set({ reviewProgress: { completed: 0, total, mode: 'review', startedAt, current: 'Reviewing answers and checkpoints...' } });
+         for (const context of contexts) {
+             if (await isReviewCancelled()) break;
+             const assessmentId = context.assessment?.assessmentId || context.detail?.assessmentId;
+             const assessmentTitle = context.assessment?.title || context.detail?.assetName || `Assessment ${assessmentId}`;
+             await chrome.storage.local.set({ reviewProgress: { completed, total, mode: 'review', startedAt, current: `Reviewing assessment ${assessmentId}...` } });
+             const review = context.buildError
+                 ? { mode: 'review', generatedAt: new Date().toISOString(), checkpointAnalysis: [], questionAnalysis: [], newQuestions: [], error: context.buildError }
+                 : await reviewContext(context, isReviewCancelled, current => chrome.storage.local.set({
+                     reviewProgress: { completed, total, mode: 'review', startedAt, current }
+                 }));
+             await saveReviewResult(assessmentId, review, assessmentTitle);
+             completed++;
+             await chrome.storage.local.set({
+                 reviewProgress: { completed, total, mode: 'review', startedAt, current: `Reviewed assessment ${assessmentId}` }
+             });
+         }
+         await chrome.storage.local.set({ reviewComplete: true });
+     } catch (error) {
+         await chrome.storage.local.set({ reviewComplete: true, reviewError: error.message });
+     }
+ }
+
  async function runValidationBatch(assessments) {
      let completed = 0;
      const total = assessments.length;
+     const startedAt = Date.now();
  
      // Clear old validation results before starting a new run
      await clearResults();
 
      // Reset progress and cancel flags
      await chrome.storage.local.set({ 
-         validationProgress: { completed: 0, total, current: 'Gathering context for all assessments...' },
+         validationProgress: { completed: 0, total, mode: 'validation', startedAt, current: 'Gathering context for all assessments...' },
          validationComplete: false,
          validationError: null,
          validationCancelled: false
@@ -156,21 +222,29 @@
          await resetConversation();
          
          await chrome.storage.local.set({ 
-             validationProgress: { completed: 0, total, current: 'Validating against checkpoints...' } 
+             validationProgress: { completed: 0, total, mode: 'validation', startedAt, current: 'Validating against checkpoints...' }
          });
 
-         // 3. Validate each context, respecting cancel signal
-         const results = await validateContexts(contexts, isCancelled);
-         
-         for (const res of results) {
+         // 3. Validate and persist each context so progress advances per assessment.
+         for (const context of contexts) {
              if (await isCancelled()) break;
-             await saveResults(res.assessmentId, res.results, res.assessmentTitle);
+             const assessmentId = context.assessment?.assessmentId || context.detail?.assessmentId;
+             const assessmentTitle = context.assessment?.title || context.detail?.assetName || `Assessment ${assessmentId}`;
+             await chrome.storage.local.set({ validationProgress: { completed, total, mode: 'validation', startedAt, current: `Validating assessment ${assessmentId}...` } });
+             const results = context.buildError
+                 ? [{ checkpointId: 'SETUP', checkpointName: 'Context Gathering', category: 'System', status: 'ERROR', message: `Failed to load assessment data: ${context.buildError}`, source: 'SYSTEM' }]
+                 : await validateContext(context, isCancelled, current => chrome.storage.local.set({
+                     validationProgress: { completed, total, mode: 'validation', startedAt, current }
+                 }));
+             await saveResults(assessmentId, results, assessmentTitle);
              completed++;
              await chrome.storage.local.set({ 
                  validationProgress: { 
-                     completed, 
-                     total, 
-                     current: `Processed assessment ${res.assessmentId}` 
+                     completed,
+                     total,
+                     mode: 'validation',
+                     startedAt,
+                     current: `Validated assessment ${assessmentId}`
                  } 
              });
          }

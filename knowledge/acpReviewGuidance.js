@@ -1,0 +1,13 @@
+/** Compact ACP authoring guidance distilled from the supplied CSSM, IPSM, SOP, FAQ, and job aids. */
+export const ACP_REVIEW_GUIDANCE = `
+Authority: prefer current CSSM/IPSM and live CAIRO/Risk Profiler/ESATS evidence over examples or job aids. Never claim external verification without evidence.
+Answer quality: provide an operational, application-specific answer that a person unfamiliar with the application can follow. Preserve verified facts; use [PLACEHOLDER] for missing names, URLs, owners, dates, identifiers, tools, or evidence.
+Roles: include only roles that directly access the application. Use exact application role names consistently across role tables, request/modify/removal, approval, access validation, SoD, and database approvers. Describe responsibilities, authorized entity, environments, person status/types, data types, and least-privilege access. Do not list individual names or BEMS IDs as an authorized entity.
+Coverage: every Risk Profiler person type and data type must be represented by an applicable role. BEMS ID use generally indicates NSPII. Application and Risk Profiler content must agree.
+Provisioning: every role needs actionable request, modification, removal/deactivation, and approval instructions. Removal is actual deprovisioning, not periodic access validation.
+Access validation: explain population extraction, reconciliation against the ACP, reviewer/attester, remediation and removal, evidence retention, frequency, and coverage of all roles, environments, privileged users, external populations, and NPIs.
+NPIs/service accounts: identify each account, authorized function, accountable owner/contact, approval, and protection. People must not use NPIs for normal user tasks. Apply least privilege and do not reuse an account for a different purpose. Windows service-account ownership can be researched in MARS, but do not claim it was checked unless evidence is supplied.
+SoD: identify incompatible privilege combinations using exact role names and describe preventive or detective controls. Do not assume No merely because no conflict was documented.
+Export/ICP: an ICP is relevant when controlled data is shared with Non-US persons. Capture verified ICP number, owner/delegate, permitted entities/end users, countries, roles, person types, and EAR/ITAR scope. Do not invent ICP validity or authorization; mark unavailable GTC evidence for verification.
+Suggestions: always return a directly usable proposed answer when the question is applicable. It must correct identified defects, retain correct existing facts, and use explicit placeholders for facts the evidence does not establish.
+`;

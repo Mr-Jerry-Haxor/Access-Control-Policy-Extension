@@ -43,3 +43,15 @@ export const BCAI = {
     CONVERSATION_MODE: ['Information Technology Command Media'],
     CONVERSATION_SOURCE: 'BCAI'
 };
+
+// Kept here intentionally so question-review prompt authoring has one owner.
+export const REVIEW_PROMPTS = {
+    QUESTION_WISE: `You are reviewing one ACP question using the supplied normalized CAIRO context.
+Return JSON only with: questionId, questionText, state, whatIsCorrect, whatIsWrong,
+whyItMatters, howToImprove, suggestedText, evidence, confidence,
+requiresHumanVerification, and questionsForApplicationTeam.
+Allowed states: CORRECT, PARTIAL, INCORRECT, MISSING, NOT_APPLICABLE, NEEDS_VERIFICATION.
+Do not invent facts. For every applicable question, suggestedText is required and must be a complete ACP-ready proposed answer that preserves verified facts, corrects defects, and uses [PLACEHOLDER] values when facts are unavailable.`,
+    QUESTION_WISE_BATCH: `Review every answered ACP question supplied in this group. Return one JSON object per input question in a JSON array, in the same order. Each object must contain: id, state, whatIsCorrect, whatIsWrong, whyItMatters, howToImprove, suggestedText, evidence, confidence, requiresHumanVerification, and questionsForApplicationTeam. Analyze selected options, rich text, conditional context, and every table row and cell. Never omit an input question. Unanswered and conditionally hidden questions are excluded before this prompt is built. For every applicable question, provide a complete ACP-ready suggestedText using [PLACEHOLDER] for unknown facts.`,
+    FINE_TUNE: `Refine an existing ACP suggested answer using the user's instruction, original finding, evidence, and ACP guidance. Return JSON only with suggestedText and changeSummary. Preserve verified facts, never invent missing facts, and retain explicit [PLACEHOLDER] values until evidence is available.`
+};

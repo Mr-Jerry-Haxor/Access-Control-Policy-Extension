@@ -235,14 +235,44 @@ export function extractJson(text) {
         } catch { /* continue */ }
     }
 
-    // Strategy 3: First JSON object or array in text
-    const objMatch = text.match(/(\{[\s\S]*?\}|\[[\s\S]*?\])/);
-    if (objMatch) {
+    // Strategy 3: First balanced JSON object or array in surrounding prose.
+    const candidate = findBalancedJson(text);
+    if (candidate) {
         try {
-            return JSON.parse(objMatch[1]);
+            return JSON.parse(candidate);
         } catch { /* continue */ }
     }
 
     logger.warn('extractJson: Could not parse JSON from response:', text.slice(0, 100));
+    return null;
+}
+
+function findBalancedJson(text) {
+    for (let start = 0; start < text.length; start++) {
+        const opening = text[start];
+        if (opening !== '{' && opening !== '[') continue;
+        const stack = [];
+        let inString = false;
+        let escaped = false;
+        for (let index = start; index < text.length; index++) {
+            const char = text[index];
+            if (inString) {
+                if (escaped) escaped = false;
+                else if (char === '\\') escaped = true;
+                else if (char === '"') inString = false;
+                continue;
+            }
+            if (char === '"') {
+                inString = true;
+                continue;
+            }
+            if (char === '{' || char === '[') stack.push(char);
+            else if (char === '}' || char === ']') {
+                const expected = char === '}' ? '{' : '[';
+                if (stack.pop() !== expected) break;
+                if (!stack.length) return text.slice(start, index + 1);
+            }
+        }
+    }
     return null;
 }
