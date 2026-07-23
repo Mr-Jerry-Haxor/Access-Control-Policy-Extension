@@ -29,7 +29,6 @@ let extensionSurface = 'popup';
 let activeReviewResult = null;
 let activeReviewAssessmentId = null;
 let activeReviewTitle = null;
-let activeReviewTab = 'checkpoint';
 let lastFocusedElement = null;
 let noticeTimer = null;
 let automationBusy = false;
@@ -90,7 +89,6 @@ function attachEvents() {
     $("reviewSearchInput").addEventListener("input", renderActiveReviewAnalysis);
     $("reviewStateFilter").addEventListener("change", renderActiveReviewAnalysis);
     document.querySelectorAll('[data-results-tab]').forEach(button => button.addEventListener('click', switchResultsTab));
-    document.querySelectorAll('[data-review-tab]').forEach(button => button.addEventListener('click', switchReviewNotesTab));
     document.querySelectorAll('[role="tablist"]').forEach(tabList => tabList.addEventListener('keydown', handleTabKeydown));
     document.addEventListener('keydown', handleGlobalKeydown);
     [$("reviewNotesModal"), $("newQuestionsModal")].forEach(modal => modal.addEventListener('click', event => {
@@ -354,7 +352,7 @@ function renderAssessments() {
 
     document.querySelectorAll(".assessment-checkbox").forEach(cb => {
         cb.addEventListener("change", (e) => {
-            const id = Number(e.target.dataset.id);
+            const id = String(e.target.dataset.id);
             if (e.target.checked && !selectedIds.includes(id)) selectedIds.push(id);
             else selectedIds = selectedIds.filter(x => x !== id);
             saveSelectedAcps(selectedIds);
@@ -557,15 +555,6 @@ function closeReviewNotes() {
     closeModal($("reviewNotesModal"));
 }
 
-function switchReviewNotesTab(event) {
-    updateTabSet('[data-review-tab]', event.currentTarget);
-    const question = event.currentTarget.dataset.reviewTab === 'question';
-    activeReviewTab = question ? 'question' : 'checkpoint';
-    $("checkpointAnalysisPanel").classList.toggle('hidden', question);
-    $("questionAnalysisPanel").classList.toggle('hidden', !question);
-    renderActiveReviewAnalysis();
-}
-
 function renderActiveReviewAnalysis() {
     if (!activeReviewResult) return;
     const query = $("reviewSearchInput").value.trim().toLowerCase();
@@ -575,16 +564,11 @@ function renderActiveReviewAnalysis() {
         if (!query) return true;
         return JSON.stringify(finding).toLowerCase().includes(query);
     });
-    const checkpointFindings = filterFindings(
-        activeReviewResult.checkpointAnalysis || activeReviewResult.checkpointWiseAnalysis || []
-    );
     const questionFindings = filterFindings(
         activeReviewResult.questionAnalysis || activeReviewResult.questionWiseAnalysis || []
     );
-    renderAnalysis($("checkpointAnalysisPanel"), checkpointFindings);
     renderAnalysis($("questionAnalysisPanel"), questionFindings);
-    const activeCount = activeReviewTab === 'question' ? questionFindings.length : checkpointFindings.length;
-    $("reviewMatchCount").textContent = `${activeCount} finding${activeCount === 1 ? '' : 's'}`;
+    $("reviewMatchCount").textContent = `${questionFindings.length} finding${questionFindings.length === 1 ? '' : 's'}`;
 }
 
 function renderAnalysis(container, findings) {

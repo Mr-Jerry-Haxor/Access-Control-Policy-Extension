@@ -285,14 +285,14 @@
              await chrome.storage.local.set({ reviewComplete: true, reviewCancelled: true });
              return;
          }
-         await chrome.storage.local.set({ reviewProgress: { completed: 0, total, mode: 'review', startedAt, current: 'Reviewing answers and checkpoints...' } });
+         await chrome.storage.local.set({ reviewProgress: { completed: 0, total, mode: 'review', startedAt, current: 'Reviewing selected question answers...' } });
          await runWithConcurrency(contexts, CONFIG.MAX_CONCURRENT_APPLICATIONS, async context => {
              if (await isCancelled()) return;
              const assessmentId = context.assessment?.assessmentId || context.detail?.assessmentId;
              const assessmentTitle = context.assessment?.title || context.detail?.assetName || `Assessment ${assessmentId}`;
              await chrome.storage.local.set({ reviewProgress: { completed, total, mode: 'review', startedAt, current: `Reviewing assessment ${assessmentId}...` } });
              const review = context.buildError
-                 ? { mode: 'review', generatedAt: new Date().toISOString(), checkpointAnalysis: [], questionAnalysis: [], newQuestions: [], error: context.buildError }
+                 ? { mode: 'review', generatedAt: new Date().toISOString(), questionAnalysis: [], newQuestions: [], error: context.buildError }
                  : await reviewContext(context, isCancelled, current => chrome.storage.local.set({
                      reviewProgress: { completed, total, mode: 'review', startedAt, current }
                  }), { signal: operation.controller.signal });

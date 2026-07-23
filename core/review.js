@@ -33,13 +33,6 @@ export async function reviewContext(context, isCancelled, onProgress, options = 
     const session = options.session || createConversationSession(`review-${assessmentId}`);
     const auditorSession = options.auditorSession || createConversationSession(`auditor-${assessmentId}`);
     const signal = options.signal || null;
-    const checkpointAnalysis = [];
-    for (const checkpoint of getAllCheckpoints()) {
-        if (isCancelled && await isCancelled()) break;
-        await onProgress?.(`Analyzing checkpoint ${checkpoint.id}: ${checkpoint.name}`);
-        checkpointAnalysis.push(await reviewCheckpoint(checkpoint, context, { session, auditorSession, signal }));
-    }
-
     const questionAnalysis = [];
     const reviewQuestionIds = new Set(REVIEW_QUESTION_IDS);
     const reviewableQuestions = (context.normalizedQuestions || []).filter(question =>
@@ -51,78 +44,33 @@ export async function reviewContext(context, isCancelled, onProgress, options = 
         questionAnalysis.push(await reviewQuestion(question, context, {
             session,
             auditorSession,
-            signal,
-            checkpointFindings: checkpointAnalysis
+            signal
         }));
     }
 
     return {
         mode: 'review',
         generatedAt: new Date().toISOString(),
-        checkpointAnalysis,
         questionAnalysis,
         // Extension point for future question-generation logic.
         newQuestions: [],
-        summary: summarizeReview(checkpointAnalysis, questionAnalysis),
+        summary: summarizeReview(questionAnalysis),
         conversationId: session.guid,
         auditorConversationId: auditorSession.guid
     };
 }
 
-function summarizeReview(checkpoints, questions) {
+function summarizeReview(questions) {
     const countStates = findings => findings.reduce((counts, finding) => {
         counts[finding.state] = (counts[finding.state] || 0) + 1;
         return counts;
     }, {});
     return {
-        checkpointCount: checkpoints.length,
         questionCount: questions.length,
-        checkpointStates: countStates(checkpoints),
         questionStates: countStates(questions),
         answeredQuestions: questions.filter(question => question.answered).length,
         questionsWithSuggestions: questions.filter(question => question.suggestedText).length
     };
-}
-
-async function reviewCheckpoint(checkpoint, context, aiOptions) {
-    const promptTemplate = checkpoint.reviewPrompt;
-    if (!promptTemplate) return normalizeFinding({}, { id: checkpoint.id, name: checkpoint.name }, 'No review prompt is configured for this checkpoint.');
-    let checkpointCriterion = null;
-    let deterministicResult = null;
-    try {
-        if (typeof checkpoint.buildPrompt === 'function') checkpointCriterion = checkpoint.buildPrompt(context);
-        if (checkpoint.type !== 'AI' && typeof checkpoint.validate === 'function') deterministicResult = await checkpoint.validate(context);
-    } catch (error) {
-        deterministicResult = { status: 'ERROR', message: error.message };
-    }
-    const evidence = {
-        assessment: context.assessment,
-        checkpointCriterion,
-        deterministicResult,
-        questions: (CHECKPOINT_EVIDENCE[checkpoint.id] || [])
-            .map(id => context.normalizedQuestionMap?.get(String(id)))
-            .filter(Boolean),
-        externalEvidence: {
-            reviewSummaries: checkpoint.id === 'ACP1' ? context.supportingData?.reviewSummaries : undefined,
-            esatsBusapp: ['ACP2', 'ACP7'].includes(checkpoint.id) ? context.supportingData?.esatsBusapp : undefined,
-            esatsRoles: checkpoint.id === 'ACP7' ? context.supportingData?.esatsRoles : undefined,
-            assetLabels: ['ACP9', 'ACP14', 'ACP15', 'ACP18', 'ACP20', 'ACP21'].includes(checkpoint.id) ? context.supportingData?.assetLabels : undefined,
-            identities: checkpoint.id === 'ACP17' ? context.supportingData?.identities : undefined,
-            cedPublic: ['ACP17', 'ACP27'].includes(checkpoint.id) ? context.supportingData?.cedPublic : undefined
-        }
-    };
-    const identity = { id: checkpoint.id, name: checkpoint.name };
-    const prompt = `${promptTemplate}\n\nACP GUIDANCE:\n${ACP_REVIEW_GUIDANCE}\n\nCHECKPOINT: ${checkpoint.id} - ${checkpoint.name}\nCONTEXT:\n${JSON.stringify(evidence)}`;
-    const finding = await requestAuditedFinding(prompt, identity, evidence, aiOptions);
-    if (deterministicResult?.status === 'FAIL') {
-        finding.state = 'INCORRECT';
-        finding.whatIsWrong = [...new Set([deterministicResult.message, ...finding.whatIsWrong].filter(Boolean))];
-    } else if (['ERROR', 'REVIEW'].includes(deterministicResult?.status)) {
-        finding.state = 'NEEDS_VERIFICATION';
-        finding.requiresHumanVerification = true;
-        finding.whatIsWrong = [...new Set([deterministicResult.message, ...finding.whatIsWrong].filter(Boolean))];
-    }
-    return finding;
 }
 
 async function reviewQuestion(question, context, aiOptions) {
@@ -134,8 +82,7 @@ async function reviewQuestion(question, context, aiOptions) {
     };
     const relatedCheckpoints = await buildRelatedCheckpointContext(
         question,
-        context,
-        aiOptions.checkpointFindings || []
+        context
     );
     const evidence = { crossSection, question, relatedCheckpoints };
     const tableConfigId = (question.aliases || []).find(alias => REVIEW_TABLE_CONFIGS[String(alias)]);
@@ -153,7 +100,7 @@ async function reviewQuestion(question, context, aiOptions) {
     return requestAuditedFinding(prompt, questionIdentity(question), evidence, aiOptions);
 }
 
-async function buildRelatedCheckpointContext(question, context, checkpointFindings) {
+async function buildRelatedCheckpointContext(question, context) {
     const relatedIds = new Set(getRelatedCheckpointIds(question.aliases || []));
     const related = getAllCheckpoints().filter(checkpoint => relatedIds.has(checkpoint.id));
 
@@ -180,7 +127,6 @@ async function buildRelatedCheckpointContext(question, context, checkpointFindin
             evidenceQuestionIds: CHECKPOINT_EVIDENCE[checkpoint.id] || [],
             criterion,
             deterministicResult,
-            checkpointFinding: checkpointFindings.find(finding => finding.id === checkpoint.id) || null,
             relatedQuestionEvidence: (CHECKPOINT_EVIDENCE[checkpoint.id] || [])
                 .map(id => context.normalizedQuestionMap?.get(String(id)))
                 .filter(Boolean),
@@ -351,5 +297,5 @@ function toArray(value) {
 }
 
 function errorReview(message) {
-    return { mode: 'review', generatedAt: new Date().toISOString(), checkpointAnalysis: [], questionAnalysis: [], newQuestions: [], error: message };
+    return { mode: 'review', generatedAt: new Date().toISOString(), questionAnalysis: [], newQuestions: [], error: message };
 }
