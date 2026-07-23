@@ -3,7 +3,7 @@
   "name": "ACP Validator",
   "description": "AI-powered Access Control Policy validation extension for CAIRO assessments.",
   "version": "1.0.0",
-
+  "minimum_chrome_version": "114",
 
   "permissions": [
     "storage",
@@ -11,7 +11,8 @@
     "tabs",
     "scripting",
     "activeTab",
-    "cookies"
+    "cookies",
+    "sidePanel"
   ],
 
   "host_permissions": [
@@ -27,6 +28,10 @@
   "action": {
     "default_popup": "popup/popup.html",
     "default_title": "ACP Validator"
+  },
+
+  "side_panel": {
+    "default_path": "popup/sidepanel.html"
   },
 
   "content_security_policy": {

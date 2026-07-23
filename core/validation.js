@@ -5,8 +5,9 @@
  */
 
 import { getAllCheckpoints } from './checkpoint.js';
-import { sendPrompt, extractJson } from '../ai/aiService.js';
+import { sendPrompt, extractJson, createConversationSession } from '../ai/aiService.js';
 import { logger } from '../utils/utils.js';
+import { CONFIG } from '../utils/constants.js';
 import { ACP_REVIEW_GUIDANCE } from '../knowledge/acpReviewGuidance.js';
 import { CHECKPOINT_EVIDENCE } from '../knowledge/checkpointEvidenceMap.js';
 
@@ -22,7 +23,7 @@ import { CHECKPOINT_EVIDENCE } from '../knowledge/checkpointEvidenceMap.js';
  * @param {object} context
  * @returns {Promise<{ status: string, reason: string }>}
  */
-export async function runAiCheckpoint(checkpoint, context) {
+export async function runAiCheckpoint(checkpoint, context, options = {}) {
     const checkpointPrompt = checkpoint.buildPrompt(context);
     
     // Checkpoint opted out — missing data
@@ -40,27 +41,28 @@ export async function runAiCheckpoint(checkpoint, context) {
         .filter(Boolean);
     const prompt = `${checkpointPrompt}\n\nACP POLICY AND AUTHORING GUIDANCE:\n${ACP_REVIEW_GUIDANCE}\n\nNORMALIZED CHECKPOINT EVIDENCE:\n${JSON.stringify(normalizedEvidence)}\n\nReturn JSON only with status (PASS, FAIL, NA, or REVIEW), reason, evidence, recommendation, confidence, and requiresHumanVerification. Use REVIEW rather than PASS when authoritative external evidence is unavailable.`;
 
-    let rawResponse;
-    try {
-        rawResponse = await sendPrompt(prompt);
-    } catch (aiErr) {
-        // Capture the BCAI error details — do NOT re-throw, just mark as error
-        const errorDetail = aiErr.message || String(aiErr);
+    let rawResponse = '';
+    let parsed = null;
+    let lastError = null;
+    for (let attempt = 1; attempt <= CONFIG.AI_RETRY_ATTEMPTS; attempt++) {
+        try {
+            rawResponse = await sendPrompt(prompt, options);
+            parsed = extractJson(rawResponse);
+            if (!parsed) throw new Error('Boeing AI returned unparseable JSON.');
+            break;
+        } catch (aiErr) {
+            if (options.signal?.aborted || aiErr?.name === 'AbortError') throw aiErr;
+            lastError = aiErr;
+            logger.warn(`AI checkpoint ${checkpoint.id} attempt ${attempt}/${CONFIG.AI_RETRY_ATTEMPTS} failed:`, aiErr.message);
+        }
+    }
+    if (!parsed) {
+        const errorDetail = lastError?.message || 'Boeing AI returned a response that could not be parsed as JSON.';
         logger.error(`AI checkpoint ${checkpoint.id} BCAI error:`, errorDetail);
         return {
             status: 'ERROR',
-            reason: `Boeing AI conversation failed: ${errorDetail}`,
-            isAiError: true
-        };
-    }
-
-    const parsed = extractJson(rawResponse);
-
-    if (!parsed) {
-        logger.warn(`Checkpoint ${checkpoint.id}: AI returned unparseable response.`);
-        return {
-            status: 'ERROR',
-            reason: 'Boeing AI returned a response that could not be parsed as JSON.',
+            reason: `Boeing AI conversation failed after retry: ${errorDetail}`,
+            isAiError: true,
             rawResponse: rawResponse?.slice(0, 500)
         };
     }
@@ -89,9 +91,11 @@ export async function runAiCheckpoint(checkpoint, context) {
  * @param {Function} [isCancelled] - async function returning true if cancelled
  * @returns {Promise<Array>} Array of checkpoint result objects
  */
-export async function validateContext(context, isCancelled, onProgress) {
+export async function validateContext(context, isCancelled, onProgress, options = {}) {
     const checkpoints = getAllCheckpoints();
     const results = [];
+    const assessmentId = context.assessment?.assessmentId || context.detail?.assessmentId || 'unknown';
+    const session = options.session || createConversationSession(`validation-${assessmentId}`);
 
     for (const checkpoint of checkpoints) {
         // Check cancellation before each checkpoint
@@ -112,7 +116,7 @@ export async function validateContext(context, isCancelled, onProgress) {
             let result;
 
             if (checkpoint.type === 'AI') {
-                const aiResult = await runAiCheckpoint(checkpoint, context);
+                const aiResult = await runAiCheckpoint(checkpoint, context, { session, signal: options.signal });
                 result = {
                     checkpointId: checkpoint.id,
                     checkpointName: checkpoint.name,

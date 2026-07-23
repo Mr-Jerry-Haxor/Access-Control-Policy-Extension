@@ -3,7 +3,7 @@
  * Manages BCAI conversation sessions and AI prompt lifecycle.
  */
 
-import { estimateTokens, logger } from '../utils/utils.js';
+import { estimateTokens, logger, sleep } from '../utils/utils.js';
 import { BCAI, CONFIG } from '../utils/constants.js';
 import { getBcaiModelsState, getConversation, saveConversation } from '../storage/storage.js';
 import { sendConversation } from '../api/apiClient.js';
@@ -20,6 +20,15 @@ function createConversation() {
         tokenUsage: 0,
         messages: [],
         created: Date.now()
+    };
+}
+
+/** Creates an isolated in-memory BCAI chat for one application or auditor. */
+export function createConversationSession(label = 'application') {
+    return {
+        ...createConversation(),
+        label,
+        isolated: true
     };
 }
 
@@ -78,16 +87,18 @@ export async function resetConversation() {
  * @param {string} prompt
  * @returns {string} Parsed AI response text
  */
-export async function sendPrompt(prompt) {
+export async function sendPrompt(prompt, options = {}) {
+    const {
+        session = null,
+        signal = null,
+        retries = CONFIG.AI_RETRY_ATTEMPTS
+    } = options;
     const modelConfig = await getSelectedModelConfig();
-    // Load conversation once, mutate in memory, save once at end
-    const conversation = await getActiveConversation(modelConfig.tokenThreshold);
-
-    // Add user message
-    conversation.messages.push({
+    const conversation = session || await getActiveConversation(modelConfig.tokenThreshold);
+    const userMessage = {
         role: 'user',
         content: [{ type: 'text', text: prompt }]
-    });
+    };
 
     const payload = {
         conversation_guid: conversation.guid,
@@ -96,32 +107,56 @@ export async function sendPrompt(prompt) {
         conversation_name: '',
         model: modelConfig.modelId,
         skip_db_save: false,
-        messages: conversation.messages
+        messages: [...conversation.messages, userMessage]
     };
 
     if (modelConfig.responseMaxTokens) {
         payload.response_max_tokens = modelConfig.responseMaxTokens;
     }
 
-    const rawResponse = await sendConversation(payload);
-    const response = parseBcaiResponse(rawResponse);
+    let response = '';
+    let lastError = null;
+    for (let attempt = 1; attempt <= Math.max(1, retries); attempt++) {
+        if (signal?.aborted) throw abortError();
+        try {
+            const rawResponse = await sendConversation(payload, { signal });
+            response = parseBcaiResponse(rawResponse);
+            if (!response.trim()) throw new Error('BCAI returned an empty response.');
+            lastError = null;
+            break;
+        } catch (error) {
+            if (signal?.aborted || error?.name === 'AbortError') throw abortError();
+            lastError = error;
+            logger.warn(`BCAI prompt attempt ${attempt}/${retries} failed:`, error.message);
+            if (attempt < retries) {
+                await sleep(CONFIG.AI_RETRY_BASE_DELAY_MS * attempt);
+            }
+        }
+    }
+    if (lastError) throw lastError;
 
     // Add assistant message and update token usage
-    conversation.messages.push({
+    conversation.messages.push(userMessage, {
         role: 'assistant',
         content: [{ type: 'text', text: response }]
     });
 
     conversation.tokenUsage += estimateTokens(prompt) + estimateTokens(response);
 
-    await saveConversation({
-        guid: conversation.guid,
-        tokenUsage: conversation.tokenUsage,
-        messages: conversation.messages,
-        created: conversation.created
-    });
+    if (!conversation.isolated) {
+        await saveConversation({
+            guid: conversation.guid,
+            tokenUsage: conversation.tokenUsage,
+            messages: conversation.messages,
+            created: conversation.created
+        });
+    }
 
     return response;
+}
+
+function abortError() {
+    return new DOMException('Operation cancelled.', 'AbortError');
 }
 
 async function getSelectedModelConfig() {

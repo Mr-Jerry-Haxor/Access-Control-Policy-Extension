@@ -340,7 +340,7 @@ export async function getBcaiModels() {
  * @param {object} payload
  * @returns {string} Raw streamed response text
  */
-export async function sendConversation(payload) {
+export async function sendConversation(payload, { signal } = {}) {
     // --- Validate payload: ensure messages have non-null text ---
     if (payload.messages) {
         payload.messages = payload.messages.map(msg => ({
@@ -370,7 +370,8 @@ export async function sendConversation(payload) {
             method: 'POST',
             credentials: 'include',
             headers: headers,
-            body: JSON.stringify(payload)
+            body: JSON.stringify(payload),
+            signal
         });
 
         if (response.ok) {
@@ -381,11 +382,13 @@ export async function sendConversation(payload) {
             // Will fall through to tab injection fallback
         }
     } catch (err) {
+        if (signal?.aborted || err?.name === 'AbortError') throw err;
         logger.warn('Direct fetch failed with exception:', err.message);
         // Will fall through to tab injection fallback
     }
 
     // --- Fallback: Tab Injection ---
+    if (signal?.aborted) throw new DOMException('Operation cancelled.', 'AbortError');
     logger.info('Direct fetch failed. Falling back to tab injection.');
     try {
         const tabs = await chrome.tabs.query({ url: '*://boeingai.web.boeing.com/*' });
@@ -448,6 +451,7 @@ export async function sendConversation(payload) {
         });
 
         const result = results?.[0]?.result;
+        if (signal?.aborted) throw new DOMException('Operation cancelled.', 'AbortError');
         if (!result) throw new Error('Tab injection returned no result.');
 
         if (result.error) {

@@ -14,7 +14,8 @@ import {
     clearResults,
     clearReviewResults,
     getStartupBehavior,
-    saveStartupBehavior
+    saveStartupBehavior,
+    getExtensionSurface
 } from "../storage/storage.js";
 
 let allAcps = [];
@@ -24,6 +25,7 @@ let pollInterval = null;
 let bcaiModels = [];
 let selectedModelId = null;
 let startupBehavior = 'restoreCached';
+let extensionSurface = 'popup';
 let activeReviewResult = null;
 let activeReviewAssessmentId = null;
 let activeReviewTitle = null;
@@ -36,15 +38,21 @@ let selectedApplicationOwner = '';
 
 const $ = id => document.getElementById(id);
 
-document.addEventListener("DOMContentLoaded", initialize);
+if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initialize, { once: true });
+} else {
+    initialize();
+}
 
 async function initialize() {
     // 1. Check prerequisites automatically
     checkPrereqSessions();
     // 2. Load existing selections
-    selectedIds = await getSelectedAcps();
+    selectedIds = (await getSelectedAcps()).map(String);
     startupBehavior = await getStartupBehavior();
+    extensionSurface = await getExtensionSurface();
     renderStartupBehavior();
+    renderExtensionSurface();
     // 3. Load primary data according to the configured browser behavior
     await loadInitialAssessmentData();
     await loadModelConfiguration();
@@ -64,6 +72,9 @@ function attachEvents() {
     document.querySelectorAll('input[name="startupBehavior"]').forEach(input => {
         input.addEventListener("change", handleStartupBehaviorChange);
     });
+    document.querySelectorAll('input[name="extensionSurface"]').forEach(input => {
+        input.addEventListener("change", handleExtensionSurfaceChange);
+    });
     $("checkPrereqBtn").addEventListener("click", checkPrereqSessions);
     $("selectAllBtn").addEventListener("click", handleSelectAll);
     $("clearSelectionBtn").addEventListener("click", handleClearSelection);
@@ -72,7 +83,8 @@ function attachEvents() {
     $("cancelValidationBtn").addEventListener("click", cancelValidation);
     $("cancelReviewBtn").addEventListener("click", cancelReview);
     $("clearFiltersBtn").addEventListener("click", clearFilters);
-    $("clearResultsBtn").addEventListener("click", clearResultsAndUI);
+    $("clearValidationResultsBtn").addEventListener("click", clearValidationResultsAndUI);
+    $("clearReviewResultsBtn").addEventListener("click", clearReviewResultsAndUI);
     $("closeReviewNotesBtn").addEventListener("click", closeReviewNotes);
     $("closeNewQuestionsBtn").addEventListener("click", () => closeModal($("newQuestionsModal")));
     $("reviewSearchInput").addEventListener("input", renderActiveReviewAnalysis);
@@ -117,6 +129,59 @@ function renderStartupBehavior() {
 async function handleStartupBehaviorChange(event) {
     startupBehavior = event.target.value;
     await saveStartupBehavior(startupBehavior);
+}
+
+function renderExtensionSurface(message = "") {
+    const sidePanelSupported = Boolean(chrome.sidePanel && chrome.action?.setPopup);
+    const selected = document.querySelector(`input[name="extensionSurface"][value="${extensionSurface}"]`);
+    const sidePanelOption = document.querySelector('input[name="extensionSurface"][value="sidePanel"]');
+
+    if (selected) selected.checked = true;
+    if (sidePanelOption) sidePanelOption.disabled = !sidePanelSupported;
+
+    const status = $("extensionSurfaceStatus");
+    if (!status) return;
+    if (message) {
+        status.textContent = message;
+    } else if (!sidePanelSupported) {
+        status.textContent = "Side pane mode is unavailable in this browser version.";
+    } else {
+        status.textContent = extensionSurface === "sidePanel"
+            ? "Side pane mode is active. The toolbar icon will open the side pane."
+            : "Popup mode is active.";
+    }
+}
+
+async function handleExtensionSurfaceChange(event) {
+    const requestedSurface = event.target.value;
+    const inputs = [...document.querySelectorAll('input[name="extensionSurface"]')];
+    let finalStatus = "";
+    inputs.forEach(input => { input.disabled = true; });
+    renderExtensionSurface(`Switching to ${requestedSurface === "sidePanel" ? "side pane" : "popup"} mode...`);
+
+    try {
+        const response = await chrome.runtime.sendMessage({
+            action: "SET_EXTENSION_SURFACE",
+            surface: requestedSurface
+        });
+        if (!response?.success) {
+            throw new Error(response?.error || "Unable to change the extension display.");
+        }
+
+        extensionSurface = response.surface;
+        finalStatus = response.message;
+        showNotice(response.message);
+    } catch (error) {
+        extensionSurface = await getExtensionSurface();
+        finalStatus = `Display mode was not changed: ${error.message}`;
+        showNotice(`Unable to change display mode: ${error.message}`, { persistent: true });
+    } finally {
+        const sidePanelSupported = Boolean(chrome.sidePanel && chrome.action?.setPopup);
+        inputs.forEach(input => {
+            input.disabled = input.value === "sidePanel" && !sidePanelSupported;
+        });
+        renderExtensionSurface(finalStatus);
+    }
 }
 
 async function loadModelConfiguration({ force = false } = {}) {
@@ -273,7 +338,7 @@ function renderAssessments() {
         row.setAttribute('role', 'listitem');
 
         row.innerHTML = `
-            <input type="checkbox" class="assessment-checkbox" data-id="${acp.assessmentId}" aria-label="Select ${escapeHtml(acp.title || `assessment ${acp.assessmentId}`)}" ${selectedIds.includes(acp.assessmentId) ? "checked" : ""}>
+            <input type="checkbox" class="assessment-checkbox" data-id="${acp.assessmentId}" aria-label="Select ${escapeHtml(acp.title || `assessment ${acp.assessmentId}`)}" ${selectedIds.includes(String(acp.assessmentId)) ? "checked" : ""}>
             <div class="assessment-meta">
                 <div class="asset-name">
                     <span>${escapeHtml(acp.title || "No Title")}</span>
@@ -330,10 +395,10 @@ function renderResults(resultsMap) {
 
     if (!resultsMap || Object.keys(resultsMap).length === 0) {
         container.innerHTML = '<div class="empty-state">No validation results yet.</div>';
-        $("clearResultsBtn").classList.add("hidden");
+        $("clearValidationResultsBtn").classList.add("hidden");
         return;
     }
-    $("clearResultsBtn").classList.remove("hidden");
+    $("clearValidationResultsBtn").classList.remove("hidden");
 
     Object.entries(resultsMap).forEach(([id, data]) => {
         const checkpoints = data.results || [];
@@ -439,9 +504,10 @@ function renderReviewResults(resultsMap) {
     container.innerHTML = "";
     if (!resultsMap || !Object.keys(resultsMap).length) {
         container.innerHTML = '<div class="empty-state">No review results yet.</div>';
+        $("clearReviewResultsBtn").classList.add("hidden");
         return;
     }
-    $("clearResultsBtn").classList.remove("hidden");
+    $("clearReviewResultsBtn").classList.remove("hidden");
     for (const [id, data] of Object.entries(resultsMap)) {
         const summary = data.review?.summary || {};
         const questionStates = summary.questionStates || {};
@@ -504,13 +570,17 @@ function renderActiveReviewAnalysis() {
     if (!activeReviewResult) return;
     const query = $("reviewSearchInput").value.trim().toLowerCase();
     const state = $("reviewStateFilter").value;
-    const filterFindings = findings => (findings || []).filter(finding => {
+    const filterFindings = findings => (findings || []).map(normalizeDisplayedFinding).filter(finding => {
         if (state && finding.state !== state) return false;
         if (!query) return true;
         return JSON.stringify(finding).toLowerCase().includes(query);
     });
-    const checkpointFindings = filterFindings(activeReviewResult.checkpointAnalysis);
-    const questionFindings = filterFindings(activeReviewResult.questionAnalysis);
+    const checkpointFindings = filterFindings(
+        activeReviewResult.checkpointAnalysis || activeReviewResult.checkpointWiseAnalysis || []
+    );
+    const questionFindings = filterFindings(
+        activeReviewResult.questionAnalysis || activeReviewResult.questionWiseAnalysis || []
+    );
     renderAnalysis($("checkpointAnalysisPanel"), checkpointFindings);
     renderAnalysis($("questionAnalysisPanel"), questionFindings);
     const activeCount = activeReviewTab === 'question' ? questionFindings.length : checkpointFindings.length;
@@ -519,10 +589,12 @@ function renderActiveReviewAnalysis() {
 
 function renderAnalysis(container, findings) {
     container.innerHTML = findings.length ? '' : '<div class="empty-state">No analysis is available.</div>';
-    findings.forEach(finding => {
+    findings.map(normalizeDisplayedFinding).forEach(finding => {
         const item = document.createElement('details');
         item.className = 'analysis-item';
         item.open = finding.state !== 'CORRECT' && finding.state !== 'NOT_APPLICABLE';
+        const hasTableAnswer = !!finding.table?.columns?.length;
+        const hasFormatAwareAnswer = hasTableAnswer || ['rich_text', 'yes_no'].includes(finding.answerFormat);
         item.innerHTML = `
             <summary class="analysis-heading"><span><strong>${escapeHtml(finding.id)}</strong>${finding.name ? `<span class="analysis-title">${escapeHtml(finding.name)}</span>` : ''}</span><span class="review-state state-${String(finding.state).toLowerCase()}">${escapeHtml(finding.state)}</span></summary>
             <div class="analysis-body">
@@ -533,8 +605,12 @@ function renderAnalysis(container, findings) {
                 ${renderAnalysisField('How to improve', finding.howToImprove)}
                 ${renderAnalysisField('Evidence', finding.evidence)}
                 <div class="suggestion-editor">
-                    <div class="suggestion-header"><strong>Suggested answer</strong><button class="icon-btn small-icon-btn copy-suggestion-btn" title="Copy suggested answer" aria-label="Copy suggested answer">⧉</button></div>
+                    <div class="suggestion-header"><strong>${hasFormatAwareAnswer ? 'Suggested corrected answer' : 'Suggested answer'}</strong><button class="icon-btn small-icon-btn copy-suggestion-btn" title="Copy suggested answer" aria-label="Copy suggested answer">⧉</button></div>
+                    ${hasTableAnswer ? `<div class="suggested-table-host">${renderSuggestedTablePanel(finding)}</div>` : ''}
+                    ${finding.answerFormat === 'yes_no' ? `<div class="suggested-option-host">${renderSuggestedOption(finding.suggestedOption)}</div>` : ''}
+                    ${hasTableAnswer ? '<details class="suggestion-narrative"><summary>Suggested narrative / fallback text</summary>' : ''}
                     <textarea class="suggestion-text input" rows="6" aria-label="Suggested answer" placeholder="No suggestion was generated.">${escapeHtml(finding.suggestedText || '')}</textarea>
+                    ${hasTableAnswer ? '</details>' : ''}
                     <div class="fine-tune-row">
                         <input class="fine-tune-input input" type="text" aria-label="Fine-tune instruction" placeholder="Describe how to fine-tune this answer...">
                         <button class="btn-secondary fine-tune-btn">Fine-tune</button>
@@ -542,17 +618,44 @@ function renderAnalysis(container, findings) {
                     <div class="fine-tune-status settings-muted" aria-live="polite"></div>
                 </div>
                 ${renderAnalysisField('Questions for the application team', finding.questionsForApplicationTeam)}
-                <div class="analysis-meta">Confidence: ${Math.round((Number(finding.confidence) || 0) * 100)}%${finding.requiresHumanVerification ? ' | Human verification required' : ''}</div>
+                <div class="analysis-meta">Confidence: ${Math.round((Number(finding.confidence) || 0) * 100)}%${finding.requiresHumanVerification ? ' | Human verification required' : ''}${finding.audit?.verified ? ' | Auditor verified' : finding.audit?.error ? ' | Auditor unavailable' : ''}</div>
             </div>`;
         const suggestion = item.querySelector('.suggestion-text');
         suggestion.addEventListener('change', async () => {
             finding.suggestedText = suggestion.value;
             await persistActiveReview();
         });
-        item.querySelector('.copy-suggestion-btn').addEventListener('click', event => copySuggestedAnswer(suggestion.value, event.currentTarget));
+        item.querySelector('.copy-suggestion-btn').addEventListener('click', event => copySuggestedAnswer(
+            serializeSuggestedAnswer(finding, suggestion.value),
+            event.currentTarget
+        ));
         item.querySelector('.fine-tune-btn').addEventListener('click', () => fineTuneFinding(finding, item));
         container.appendChild(item);
     });
+}
+
+function normalizeDisplayedFinding(finding) {
+    const state = String(finding?.state || 'NEEDS_VERIFICATION').toUpperCase();
+    const normalized = {
+        id: finding?.id || finding?.questionId || finding?.checkpointId || 'Unknown',
+        name: finding?.name || finding?.questionText || finding?.checkpointName || '',
+        state,
+        whatIsCorrect: finding?.whatIsCorrect ?? finding?.what_is_correct ?? [],
+        whatIsWrong: finding?.whatIsWrong ?? finding?.what_is_wrong ?? [],
+        whyItMatters: finding?.whyItMatters ?? finding?.why_it_matters ?? '',
+        howToImprove: finding?.howToImprove ?? finding?.how_to_improve ?? [],
+        suggestedText: finding?.suggestedText ?? finding?.suggested_text ?? '',
+        suggestedTable: finding?.suggestedTable ?? finding?.suggested_table ?? null,
+        suggestedOption: finding?.suggestedOption ?? finding?.suggested_option ?? null,
+        answerFormat: finding?.answerFormat ?? finding?.answer_format ?? null,
+        requiresHumanVerification: finding?.requiresHumanVerification ?? finding?.requires_human_verification ?? true,
+        questionsForApplicationTeam: finding?.questionsForApplicationTeam ?? finding?.questions_for_application_team ?? []
+    };
+    if (finding && typeof finding === 'object') {
+        Object.assign(finding, normalized);
+        return finding;
+    }
+    return normalized;
 }
 
 function renderQuestionEvidence(finding) {
@@ -562,19 +665,78 @@ function renderQuestionEvidence(finding) {
     return `
         <div class="question-evidence">
             <div class="question-evidence-meta"><span>${escapeHtml(finding.group || 'General')}</span><span>${escapeHtml(finding.questionType || 'Unknown type')}</span><span>${finding.answered ? 'Answered' : 'No recorded answer'}</span></div>
-            <div class="current-answer"><strong>Current answer</strong><p>${escapeHtml(answer || 'No answer recorded.')}</p></div>
-            ${renderEvidenceTable(finding.table)}
+            <div class="answer-comparison-card original-answer-card">
+                <div class="answer-comparison-heading"><strong>Original CAIRO answer</strong>${finding.table ? '<span>Table view</span>' : ''}</div>
+                ${finding.table
+                    ? `<div class="original-table-host">${renderComparisonTable(finding.table, finding.suggestedTable, 'original')}</div>`
+                    : finding.answerFormat === 'yes_no'
+                        ? `<div class="current-answer option-answer"><span class="answer-option-badge original-option">${escapeHtml(answer || 'No answer recorded.')}</span></div>`
+                        : `<div class="current-answer rich-text-answer"><p>${escapeHtml(answer || 'No answer recorded.')}</p></div>`}
+            </div>
         </div>`;
 }
 
-function renderEvidenceTable(table) {
+function renderSuggestedOption(option) {
+    const normalized = String(option || 'NEEDS_VERIFICATION').toUpperCase();
+    const label = normalized === 'NEEDS_VERIFICATION' ? 'Needs verification' : normalized === 'YES' ? 'Yes' : 'No';
+    return `<div class="option-answer"><span class="answer-option-badge suggested-option option-${normalized.toLowerCase()}">${label}</span></div>`;
+}
+
+function renderSuggestedTablePanel(finding) {
+    if (!finding.suggestedTable?.rows?.length) {
+        return '<div class="structured-suggestion-empty">No structured table was returned. Use Fine-tune to ask BCAI to regenerate the complete ACP-AR1 table, or review the fallback narrative below.</div>';
+    }
+    return `
+        <div class="table-change-legend" aria-label="Table change legend">
+            <span><i class="legend-swatch changed"></i>Changed</span>
+            <span><i class="legend-swatch added"></i>New row</span>
+            <span><i class="legend-swatch unchanged"></i>Unchanged</span>
+        </div>
+        ${renderComparisonTable(finding.suggestedTable, finding.table, 'suggested')}`;
+}
+
+function renderComparisonTable(table, comparisonTable, side) {
     if (!table?.columns?.length) return '';
     const rows = table.rows || [];
-    return `<div class="evidence-table-wrap"><table class="evidence-table"><thead><tr>${table.columns.map(column => `<th>${escapeHtml(column.label)}</th>`).join('')}</tr></thead><tbody>${rows.map(row => `<tr>${table.columns.map(column => {
-        const cell = row.cells?.find(candidate => candidate.key === column.key);
-        const values = cell?.values?.map(value => value.value).filter(Boolean) || [];
-        return `<td>${escapeHtml(values.join(', ') || '—')}</td>`;
-    }).join('')}</tr>`).join('')}</tbody></table></div>`;
+    const comparisonRows = comparisonTable?.rows || [];
+    const caption = side === 'suggested' ? 'Suggested corrected ACP table' : 'Original CAIRO ACP table';
+    return `<div class="evidence-table-wrap"><table class="evidence-table comparison-table"><caption class="visually-hidden">${caption}</caption><thead><tr><th class="row-number-column">Row</th>${table.columns.map(column => `<th>${escapeHtml(column.label)}</th>`).join('')}</tr></thead><tbody>${rows.map((row, rowIndex) => {
+        const comparisonRow = findComparisonRow(row, rowIndex, comparisonRows);
+        const rowClass = !comparisonRow ? (side === 'suggested' ? 'table-row-added' : 'table-row-removed') : '';
+        return `<tr class="${rowClass}"><th class="row-number-column" scope="row">${escapeHtml(String(row.rowGroupNumber ?? rowIndex + 1))}</th>${table.columns.map(column => {
+            const value = getTableCellText(row, column.key);
+            const comparisonValue = comparisonRow ? getTableCellText(comparisonRow, column.key) : '';
+            const changed = comparisonRow && normalizeCellText(value) !== normalizeCellText(comparisonValue);
+            const cellClass = changed ? 'table-cell-changed' : comparisonRow ? 'table-cell-unchanged' : '';
+            return `<td class="${cellClass}">${escapeHtml(value || '—')}</td>`;
+        }).join('')}</tr>`;
+    }).join('')}</tbody></table></div>`;
+}
+
+function findComparisonRow(row, index, rows) {
+    const group = String(row?.rowGroupNumber ?? '');
+    return rows.find(candidate => String(candidate?.rowGroupNumber ?? '') === group) || rows[index] || null;
+}
+
+function getTableCellText(row, key) {
+    const cell = row?.cells?.find(candidate => String(candidate?.key) === String(key));
+    return (cell?.values || []).map(value => typeof value === 'object' ? value?.value : value).filter(Boolean).join(', ');
+}
+
+function normalizeCellText(value) {
+    return String(value || '').trim().replace(/\s+/g, ' ').toLowerCase();
+}
+
+function serializeSuggestedAnswer(finding, fallbackText) {
+    const table = finding.suggestedTable;
+    if (!table?.columns?.length || !table?.rows?.length) {
+        return finding.suggestedOption
+            ? [finding.suggestedOption, fallbackText].filter(Boolean).join('\n')
+            : fallbackText;
+    }
+    const header = table.columns.map(column => column.label).join('\t');
+    const rows = table.rows.map(row => table.columns.map(column => getTableCellText(row, column.key)).join('\t'));
+    return [header, ...rows].join('\n');
 }
 
 async function copySuggestedAnswer(text, button) {
@@ -610,7 +772,15 @@ async function fineTuneFinding(finding, item) {
         });
         if (!response?.success) throw new Error(response?.error || 'Fine-tuning failed.');
         finding.suggestedText = response.suggestedText;
+        finding.suggestedOption = response.suggestedOption || finding.suggestedOption || null;
+        finding.suggestedTable = response.suggestedTable || finding.suggestedTable || null;
         item.querySelector('.suggestion-text').value = response.suggestedText;
+        const suggestedTableHost = item.querySelector('.suggested-table-host');
+        if (suggestedTableHost) suggestedTableHost.innerHTML = renderSuggestedTablePanel(finding);
+        const suggestedOptionHost = item.querySelector('.suggested-option-host');
+        if (suggestedOptionHost) suggestedOptionHost.innerHTML = renderSuggestedOption(finding.suggestedOption);
+        const originalTableHost = item.querySelector('.original-table-host');
+        if (originalTableHost) originalTableHost.innerHTML = renderComparisonTable(finding.table, finding.suggestedTable, 'original');
         input.value = '';
         status.textContent = response.changeSummary || 'Suggested answer updated.';
         await persistActiveReview();
@@ -680,8 +850,9 @@ async function refreshData() {
 }
 
 async function startValidation() {
-    const selected = allAcps.filter(x => selectedIds.includes(x.assessmentId));
+    const selected = allAcps.filter(x => selectedIds.includes(String(x.assessmentId)));
     if (!selected.length) return showNotice("Select at least one assessment before validating.");
+    if (!await verifyPrerequisitesForOperation('validation')) return;
     setAutomationBusy(true);
 
     $("progressContainer").classList.remove("hidden");
@@ -703,8 +874,9 @@ async function startValidation() {
 }
 
 async function startReview() {
-    const selected = allAcps.filter(x => selectedIds.includes(x.assessmentId));
+    const selected = allAcps.filter(x => selectedIds.includes(String(x.assessmentId)));
     if (!selected.length) return showNotice("Select at least one assessment before reviewing.");
+    if (!await verifyPrerequisitesForOperation('review')) return;
     setAutomationBusy(true);
     $("progressContainer").classList.remove("hidden");
     $("validateBtn").classList.add("hidden");
@@ -924,11 +1096,18 @@ function clearFilters() {
     renderAssessments();
 }
 
-async function clearResultsAndUI() {
-    await Promise.all([clearResults(), clearReviewResults()]);
+async function clearValidationResultsAndUI() {
+    await clearResults();
     $("resultsContainer").innerHTML = '<div class="empty-state">No validation results yet.</div>';
+    $("clearValidationResultsBtn").classList.add("hidden");
+    showNotice('Validation results cleared.');
+}
+
+async function clearReviewResultsAndUI() {
+    await clearReviewResults();
     $("reviewResultsContainer").innerHTML = '<div class="empty-state">No review results yet.</div>';
-    $("clearResultsBtn").classList.add("hidden");
+    $("clearReviewResultsBtn").classList.add("hidden");
+    showNotice('Review results cleared.');
 }
 
 function showNotice(message, { persistent = false } = {}) {
@@ -944,7 +1123,8 @@ function setAutomationBusy(busy) {
     const controlIds = [
         'refreshBtn', 'checkPrereqBtn', 'selectAllBtn', 'clearSelectionBtn',
         'searchInput', 'regexMode', 'dateFilterField', 'assessmentStatusFilter',
-        'ownerSearchInput', 'dateStartFilter', 'dateEndFilter', 'clearFiltersBtn'
+        'ownerSearchInput', 'dateStartFilter', 'dateEndFilter', 'clearFiltersBtn',
+        'clearValidationResultsBtn', 'clearReviewResultsBtn'
     ];
     controlIds.forEach(id => { const element = $(id); if (element) element.disabled = busy; });
     document.querySelectorAll('.assessment-checkbox').forEach(checkbox => { checkbox.disabled = busy; });
@@ -1038,17 +1218,30 @@ async function checkPrereqSessions() {
             summary.textContent = allPassed ? "All prerequisites satisfied." : "Some prerequisites are missing.";
             summary.style.color = allPassed ? "inherit" : "#e53e3e";
         }
+        return allPassed;
     } catch (error) {
         showNotice(`Unable to check sessions: ${error.message}`, { persistent: true });
         document.querySelectorAll('.prereq-item .signal').forEach(signal => signal.className = 'signal signal-unknown');
+        return false;
     } finally {
         button.disabled = automationBusy;
         button.textContent = 'Check Sessions';
     }
 }
 
+async function verifyPrerequisitesForOperation(mode) {
+    showNotice(`Checking prerequisites before ${mode}...`, { persistent: true });
+    const passed = await checkPrereqSessions();
+    if (!passed) {
+        showNotice(`Cannot start ${mode}. Open Cairo and Boeing AI, sign in, then try again.`, { persistent: true });
+        return false;
+    }
+    showNotice(`Prerequisites verified. Starting ${mode}...`);
+    return true;
+}
+
 function handleSelectAll() {
-    selectedIds = filteredAcps.map(a => a.assessmentId);
+    selectedIds = filteredAcps.map(a => String(a.assessmentId));
     saveSelectedAcps(selectedIds);
     renderAssessments();
     updateSelectedCount();

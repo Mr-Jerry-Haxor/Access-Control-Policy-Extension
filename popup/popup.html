@@ -18,7 +18,7 @@
             <span class="version-label">
                 Quality Control v2.5
             </span>
-            <button id="refreshBtn" class="icon-btn" title="Refresh assessments" aria-label="Refresh assessments">↻</button>
+            <button id="refreshBtn" class="icon-btn refresh-btn" title="Refresh assessments" aria-label="Refresh assessments"><span class="refresh-icon" aria-hidden="true">↻</span></button>
             <button id="settingsBtn" class="icon-btn" title="Settings" aria-label="Open settings">⚙</button>
         </div>
     </header>
@@ -135,16 +135,19 @@
     <section class="card">
         <div class="card-title-row">
             <span>Results</span>
-            <div class="results-actions">
-                <button id="clearResultsBtn" class="btn-secondary hidden">Clear Results</button>
-            </div>
         </div>
         <div class="tab-list" role="tablist" aria-label="Result type">
             <button id="validationResultsTab" class="tab-btn active" role="tab" aria-selected="true" aria-controls="validationResultsPanel" tabindex="0" data-results-tab="validation">Validation Results</button>
             <button id="reviewResultsTab" class="tab-btn" role="tab" aria-selected="false" aria-controls="reviewResultsPanel" tabindex="-1" data-results-tab="review">Review Results</button>
         </div>
-        <div id="validationResultsPanel" role="tabpanel" aria-labelledby="validationResultsTab"><div id="resultsContainer" class="results-container"><div class="empty-state">No validation results yet.</div></div></div>
-        <div id="reviewResultsPanel" class="hidden" role="tabpanel" aria-labelledby="reviewResultsTab"><div id="reviewResultsContainer" class="results-container"><div class="empty-state">No review results yet.</div></div></div>
+        <div id="validationResultsPanel" role="tabpanel" aria-labelledby="validationResultsTab">
+            <div class="panel-actions"><button id="clearValidationResultsBtn" class="btn-secondary hidden">Clear Validation Results</button></div>
+            <div id="resultsContainer" class="results-container"><div class="empty-state">No validation results yet.</div></div>
+        </div>
+        <div id="reviewResultsPanel" class="hidden" role="tabpanel" aria-labelledby="reviewResultsTab">
+            <div class="panel-actions"><button id="clearReviewResultsBtn" class="btn-secondary hidden">Clear Review Results</button></div>
+            <div id="reviewResultsContainer" class="results-container"><div class="empty-state">No review results yet.</div></div>
+        </div>
     </section>
 </div>
 
@@ -211,6 +214,25 @@
                     <small>Use cached assessments and existing results when the popup reopens. Use refresh for new data.</small>
                 </span>
             </label>
+        </section>
+
+        <section class="settings-section surface-section">
+            <div class="card-title">Extension Display</div>
+            <label class="startup-option">
+                <input type="radio" name="extensionSurface" value="popup">
+                <span>
+                    <strong>Popup (default)</strong>
+                    <small>Open ACP Validator in the toolbar popup, as it does today.</small>
+                </span>
+            </label>
+            <label class="startup-option">
+                <input type="radio" name="extensionSurface" value="sidePanel">
+                <span>
+                    <strong>Side pane</strong>
+                    <small>Keep ACP Validator open beside the current browser tab.</small>
+                </span>
+            </label>
+            <div id="extensionSurfaceStatus" class="settings-muted surface-status" role="status" aria-live="polite"></div>
         </section>
 
         <section class="settings-section">

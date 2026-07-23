@@ -26,6 +26,7 @@ import {
     searchAssetLabels
 } from '../api/apiClient.js';
 import { logger } from '../utils/utils.js';
+import { CONFIG } from '../utils/constants.js';
 
 // ============================================================
 // Context Cache
@@ -464,20 +465,26 @@ export async function buildContext(assessment) {
 }
 
 export async function buildContexts(assessments) {
-    const results = [];
-
-    for (const assessment of assessments) {
-        try {
-            const context = await buildContext(assessment);
-            results.push(context);
-        } catch (err) {
-            logger.error(`Failed to build context for ${assessment.assessmentId}:`, err.message);
-            results.push({
-                assessment,
-                buildError: err.message
-            });
+    const results = new Array(assessments.length);
+    let nextIndex = 0;
+    const worker = async () => {
+        while (nextIndex < assessments.length) {
+            const index = nextIndex++;
+            const assessment = assessments[index];
+            try {
+                results[index] = await buildContext(assessment);
+            } catch (err) {
+                logger.error(`Failed to build context for ${assessment.assessmentId}:`, err.message);
+                results[index] = {
+                    assessment,
+                    buildError: err.message
+                };
+            }
         }
-    }
+    };
+
+    const workerCount = Math.min(CONFIG.MAX_CONCURRENT_CONTEXTS, assessments.length);
+    await Promise.all(Array.from({ length: workerCount }, worker));
 
     logger.info(`Built ${results.filter(c => !c.buildError).length}/${assessments.length} contexts successfully.`);
     return results;

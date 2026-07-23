@@ -735,6 +735,87 @@ h1 {
     white-space: pre-wrap;
 }
 
+.rich-text-answer {
+    max-height: 260px;
+    padding: 10px;
+    overflow-y: auto;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: #f8fafc;
+}
+
+.rich-text-answer p {
+    line-height: 1.55;
+}
+
+.option-answer {
+    display: flex;
+    align-items: center;
+    margin-top: 8px;
+}
+
+.answer-option-badge {
+    display: inline-flex;
+    align-items: center;
+    min-height: 30px;
+    padding: 5px 12px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: #f3f6fa;
+    color: #475569;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.original-option {
+    border-color: #cbd5e1;
+    background: #f8fafc;
+}
+
+.suggested-option.option-yes {
+    border-color: #a7d7b8;
+    background: #e7f6ed;
+    color: #1f6b3a;
+}
+
+.suggested-option.option-no {
+    border-color: #efb4b4;
+    background: #fde8e8;
+    color: #7a1b1b;
+}
+
+.suggested-option.option-needs_verification {
+    border-color: #f5c96b;
+    background: #fff4d6;
+    color: #6b4a00;
+}
+
+.answer-comparison-card {
+    margin-top: 10px;
+    padding: 10px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: #fff;
+}
+
+.original-answer-card {
+    border-left: 3px solid #94a3b8;
+}
+
+.answer-comparison-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: 12px;
+}
+
+.answer-comparison-heading span {
+    color: var(--muted);
+    font-size: 10px;
+    font-weight: 600;
+}
+
 .evidence-table-wrap {
     max-width: 100%;
     margin-top: 10px;
@@ -746,6 +827,132 @@ h1 {
     min-width: 520px;
     border-collapse: collapse;
     font-size: 10px;
+}
+
+.comparison-table {
+    min-width: 1480px;
+    table-layout: auto;
+}
+
+.comparison-table th,
+.comparison-table td {
+    min-width: 118px;
+    max-width: 260px;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.comparison-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+}
+
+.comparison-table .row-number-column {
+    position: sticky;
+    left: 0;
+    z-index: 3;
+    min-width: 44px;
+    width: 44px;
+    max-width: 44px;
+    background: #f3f6fa;
+    text-align: center;
+}
+
+.comparison-table th:nth-child(2),
+.comparison-table td:nth-child(2) {
+    position: sticky;
+    left: 44px;
+    z-index: 1;
+    min-width: 180px;
+    box-shadow: 1px 0 0 var(--border);
+}
+
+.comparison-table th:nth-child(2) {
+    z-index: 3;
+    background: #f3f6fa;
+}
+
+.comparison-table td:nth-child(2) {
+    background: #fff;
+}
+
+.comparison-table .table-cell-changed {
+    background: #fff4d6;
+    box-shadow: inset 0 0 0 1px #f5c96b;
+}
+
+.comparison-table .table-cell-changed:nth-child(2) {
+    background: #fff4d6;
+}
+
+.comparison-table .table-cell-unchanged {
+    background: #fff;
+}
+
+.comparison-table .table-row-added td {
+    background: #e7f6ed;
+}
+
+.comparison-table .table-row-added td:nth-child(2) {
+    background: #e7f6ed;
+}
+
+.comparison-table .table-row-removed td {
+    background: #fde8e8;
+}
+
+.comparison-table .table-row-removed td:nth-child(2) {
+    background: #fde8e8;
+}
+
+.table-change-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 14px;
+    margin: 4px 0 8px;
+    color: var(--muted);
+    font-size: 10px;
+}
+
+.table-change-legend span {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.legend-swatch {
+    width: 10px;
+    height: 10px;
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    background: #fff;
+}
+
+.legend-swatch.changed { background: #fff4d6; border-color: #f5c96b; }
+.legend-swatch.added { background: #e7f6ed; }
+.legend-swatch.unchanged { background: #fff; }
+
+.structured-suggestion-empty {
+    padding: 10px;
+    border: 1px dashed #f5c96b;
+    border-radius: 8px;
+    background: #fffaf0;
+    color: #6b4a00;
+    font-size: 11px;
+}
+
+.suggestion-narrative {
+    margin-top: 10px;
+}
+
+.suggestion-narrative summary {
+    color: var(--muted);
+    font-size: 11px;
+}
+
+.suggestion-narrative .suggestion-text {
+    margin-top: 8px;
 }
 
 .evidence-table th,
@@ -1055,6 +1262,11 @@ h1 {
     color: var(--muted);
     font-size: 12px;
     line-height: 1.4;
+}
+
+.surface-status {
+    min-height: 17px;
+    margin-top: 10px;
 }
 
 .model-details {
@@ -1373,7 +1585,19 @@ textarea:disabled {
     border-radius: 8px;
 }
 
-.icon-btn.is-loading {
+.refresh-btn {
+    border: 1px solid var(--border);
+    box-shadow: 0 1px 2px rgba(15, 23, 42, .05);
+}
+
+.refresh-icon {
+    display: inline-block;
+    font-size: 22px;
+    line-height: 1;
+    transform-origin: center;
+}
+
+.icon-btn.is-loading .refresh-icon {
     animation: spin .8s linear infinite;
 }
 
@@ -1383,6 +1607,12 @@ textarea:disabled {
 
 .prereq-list {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.panel-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin: 10px 0;
 }
 
 .tooltip-panel {
@@ -1657,4 +1887,70 @@ textarea:disabled {
         animation-duration: .01ms !important;
         animation-iteration-count: 1 !important;
     }
+}
+
+html.side-panel-mode,
+html.side-panel-mode body {
+    width: 100%;
+    min-width: 0;
+    max-width: none;
+}
+
+html.side-panel-mode .app {
+    padding: 12px;
+}
+
+html.side-panel-mode .header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 10px;
+}
+
+html.side-panel-mode .header-actions {
+    width: 100%;
+}
+
+html.side-panel-mode .version-label {
+    margin-right: auto;
+}
+
+html.side-panel-mode .grid-2,
+html.side-panel-mode .automation-actions,
+html.side-panel-mode .review-result-actions,
+html.side-panel-mode .review-toolbar,
+html.side-panel-mode .fine-tune-row,
+html.side-panel-mode .progress-context,
+html.side-panel-mode .prereq-list,
+html.side-panel-mode .model-detail-row {
+    grid-template-columns: minmax(0, 1fr);
+}
+
+html.side-panel-mode .progress-context span:first-child,
+html.side-panel-mode .review-toolbar > .settings-muted {
+    grid-column: auto;
+}
+
+html.side-panel-mode .card-title-row,
+html.side-panel-mode .settings-section-header,
+html.side-panel-mode .result-header {
+    align-items: flex-start;
+    flex-wrap: wrap;
+}
+
+html.side-panel-mode .tooltip-panel {
+    position: fixed;
+    top: 92px;
+    right: 12px;
+    left: 12px;
+    width: auto;
+}
+
+html.side-panel-mode .modal-backdrop {
+    padding: 8px;
+}
+
+html.side-panel-mode .modal-panel,
+html.side-panel-mode .review-modal-panel {
+    width: 100%;
+    max-width: 100%;
 }

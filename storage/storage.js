@@ -35,8 +35,12 @@ const KEYS = {
     BCAI_MODELS_FETCHED_AT: 'bcaiModelsFetchedAt',
     BCAI_SELECTED_MODEL: 'bcaiSelectedModel',
     BCAI_MODEL_USER_SELECTED: 'bcaiModelUserSelected',
-    STARTUP_BEHAVIOR: 'startupBehavior'
+    STARTUP_BEHAVIOR: 'startupBehavior',
+    EXTENSION_SURFACE: 'extensionSurface'
 };
+
+let validationWriteQueue = Promise.resolve();
+let reviewWriteQueue = Promise.resolve();
 
 // ============================================================
 // Assessment Store
@@ -66,6 +70,16 @@ export async function saveStartupBehavior(behavior) {
     await setValue(KEYS.STARTUP_BEHAVIOR, behavior);
 }
 
+export async function getExtensionSurface() {
+    const surface = await getValue(KEYS.EXTENSION_SURFACE);
+    return surface === 'sidePanel' ? 'sidePanel' : 'popup';
+}
+
+export async function saveExtensionSurface(surface) {
+    const normalized = surface === 'sidePanel' ? 'sidePanel' : 'popup';
+    await setValue(KEYS.EXTENSION_SURFACE, normalized);
+}
+
 // ============================================================
 // Conversation Store
 // ============================================================
@@ -93,13 +107,16 @@ export async function clearConversation() {
  * @param {string} [title] - Optional display title for the assessment
  */
 export async function saveResults(assessmentId, results, title) {
-    const existing = await getAllResults();
-    existing[assessmentId] = {
-        title: title || `Assessment ${assessmentId}`,
-        results,
-        timestamp: Date.now()
-    };
-    await setValue(KEYS.RESULTS, existing);
+    validationWriteQueue = validationWriteQueue.catch(() => {}).then(async () => {
+        const existing = await getAllResults();
+        existing[assessmentId] = {
+            title: title || `Assessment ${assessmentId}`,
+            results,
+            timestamp: Date.now()
+        };
+        await setValue(KEYS.RESULTS, existing);
+    });
+    await validationWriteQueue;
 }
 
 export async function getResults(assessmentId) {
@@ -116,13 +133,16 @@ export async function clearResults() {
 }
 
 export async function saveReviewResult(assessmentId, review, title) {
-    const existing = await getAllReviewResults();
-    existing[assessmentId] = {
-        title: title || `Assessment ${assessmentId}`,
-        review,
-        timestamp: Date.now()
-    };
-    await setValue(KEYS.REVIEW_RESULTS, existing);
+    reviewWriteQueue = reviewWriteQueue.catch(() => {}).then(async () => {
+        const existing = await getAllReviewResults();
+        existing[assessmentId] = {
+            title: title || `Assessment ${assessmentId}`,
+            review,
+            timestamp: Date.now()
+        };
+        await setValue(KEYS.REVIEW_RESULTS, existing);
+    });
+    await reviewWriteQueue;
 }
 
 export async function getAllReviewResults() {
