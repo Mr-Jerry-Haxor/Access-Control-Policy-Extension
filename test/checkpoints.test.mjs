@@ -11,6 +11,7 @@ import ACP9 from "../checkpoints/ACP9.js";
 import ACP10 from "../checkpoints/ACP10.js";
 import ACP5 from "../checkpoints/ACP5.js";
 import ACP6 from "../checkpoints/ACP6.js";
+import ACP7 from "../checkpoints/ACP7.js";
 import ACP13 from "../checkpoints/ACP13.js";
 import ACP15 from "../checkpoints/ACP15.js";
 import ACP16 from "../checkpoints/ACP16.js";
@@ -240,6 +241,35 @@ test("ACP6 inherits only ACP5's AI-approved no-DBA N/A exception", async () => {
     const failed = await ACP6.validate(unrelatedNa);
     assert.equal(failed.status, "FAIL");
     assert.match(failed.message, /No DBA role/);
+});
+
+test("ACP7 preserves deterministic outcomes and asks AI to verify ACP-AI2 only on failure", async () => {
+    const noTierSupport = await ACP7.validate(contextWithRoles([], { esatsRoles: [] }));
+    assert.equal(noTierSupport.status, "N/A");
+
+    const withSupportRole = await ACP7.validate(contextWithRoles(
+        [{ role: "Application Support" }],
+        { esatsRoles: [{ roleType: "Tier 2/3 Technical Support" }] }
+    ));
+    assert.equal(withSupportRole.status, "PASS");
+
+    const exceptionContext = contextWithRoles(
+        [{ role: "Application User" }],
+        {
+            esatsRoles: [{ roleType: "Tier 2/3 Technical Support" }],
+            answers: {
+                "ACP-AI2": "Tier 2/3 support is provided by the shared platform support team and documented in that platform's ACP."
+            }
+        }
+    );
+    const failed = await ACP7.validate(exceptionContext);
+    assert.equal(failed.status, "FAIL");
+    assert.match(failed.message, /AI verification/);
+
+    const prompt = ACP7.buildFailurePrompt(exceptionContext);
+    assert.match(prompt, /ACP-AI2/);
+    assert.match(prompt, /shared platform support team/);
+    assert.match(prompt, /Return NA only/);
 });
 
 test("ACP23 compares data type within each Non-US role row", async () => {
