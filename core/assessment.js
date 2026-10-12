@@ -57,20 +57,24 @@ export function getSelectedIds() {
 export async function validateAssessment(context) {
     const checkpoints = getAllCheckpoints();
     const results = [];
+    context.checkpointResults = new Map();
 
     for (const checkpoint of checkpoints) {
         try {
             const result = await executeCheckpoint(checkpoint, context);
             results.push(result);
+            context.checkpointResults.set(checkpoint.id, result);
         } catch (err) {
             logger.error(`Checkpoint ${checkpoint.id} failed:`, err.message);
-            results.push({
+            const errorResult = {
                 checkpointId: checkpoint.id,
                 checkpointName: checkpoint.name,
                 status: 'FAIL',
                 message: `Execution error: ${err.message}`,
                 source: checkpoint.type || 'UNKNOWN'
-            });
+            };
+            results.push(errorResult);
+            context.checkpointResults.set(checkpoint.id, errorResult);
         }
     }
 

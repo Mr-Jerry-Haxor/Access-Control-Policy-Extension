@@ -6,7 +6,7 @@
  * Import them as default imports.
  */
 
-import { runAiCheckpoint } from './validation.js';
+import { runAiCheckpoint, runAiPrompt } from './validation.js';
 import { logger } from '../utils/utils.js';
 
 // ============================================================
@@ -85,5 +85,10 @@ export async function executeCheckpoint(checkpoint, context) {
     if (checkpoint.type === 'AI') {
         return runAiCheckpoint(checkpoint, context);
     }
-    return checkpoint.validate(context);
+    const ruleResult = await checkpoint.validate(context);
+    if (ruleResult.status === 'FAIL' && typeof checkpoint.buildFailurePrompt === 'function') {
+        const aiResult = await runAiPrompt(checkpoint, context, checkpoint.buildFailurePrompt(context, ruleResult));
+        return { ...aiResult, conditionalAiFallback: true };
+    }
+    return ruleResult;
 }

@@ -6,6 +6,8 @@ import { BCAI, URLS } from "../utils/constants.js";
 import { normalizeQuestionTable } from "../core/context.js";
 import { buildBcaiResponsesPayload, parseBcaiResponse, parseBcaiResponseDetails } from "../ai/aiService.js";
 import ACP8 from "../checkpoints/ACP8.js";
+import ACP5 from "../checkpoints/ACP5.js";
+import ACP6 from "../checkpoints/ACP6.js";
 import ACP13 from "../checkpoints/ACP13.js";
 import ACP15 from "../checkpoints/ACP15.js";
 import ACP19 from "../checkpoints/ACP19.js";
@@ -137,6 +139,55 @@ test("ACP13 requires a non-None access level on every row", async () => {
     ]));
     assert.equal(result.status, "FAIL");
     assert.match(result.message, /Broken/);
+});
+
+test("ACP5 keeps deterministic pass and no-database outcomes", async () => {
+    const noDatabase = await ACP5.validate(contextWithRoles([], { gsepDatabases: [] }));
+    assert.equal(noDatabase.status, "N/A");
+
+    const withDba = await ACP5.validate(contextWithRoles(
+        [{ role: "Application DBA" }],
+        { gsepDatabases: [{ databaseName: "APPDB" }] }
+    ));
+    assert.equal(withDba.status, "PASS");
+});
+
+test("ACP5 failure prompt asks AI to verify ACP-AI2", async () => {
+    const context = contextWithRoles(
+        [{ role: "Application User" }],
+        {
+            gsepDatabases: [{ databaseName: "Speed DB" }],
+            answers: {
+                "ACP-AI2": "DCMS uses the Speed Application database, and the DBA role is documented under the Speed Application ACP."
+            }
+        }
+    );
+    const result = await ACP5.validate(context);
+    assert.equal(result.status, "FAIL");
+    assert.match(result.message, /AI verification/);
+
+    const prompt = ACP5.buildFailurePrompt(context);
+    assert.match(prompt, /ACP-AI2/);
+    assert.match(prompt, /DCMS uses the Speed Application database/);
+    assert.match(prompt, /shared database owned and administered under another application's ACP/);
+});
+
+test("ACP6 inherits only ACP5's AI-approved no-DBA N/A exception", async () => {
+    const supportingData = { gsepDatabases: [{ databaseName: "Speed DB" }] };
+    const acceptedException = contextWithRoles([{ role: "Application User" }], supportingData);
+    acceptedException.checkpointResults = new Map([["ACP5", {
+        status: "N/A",
+        conditionalAiFallback: true
+    }]]);
+    const skipped = await ACP6.validate(acceptedException);
+    assert.equal(skipped.status, "N/A");
+    assert.match(skipped.message, /ACP-AI2/);
+
+    const unrelatedNa = contextWithRoles([{ role: "Application User" }], supportingData);
+    unrelatedNa.checkpointResults = new Map([["ACP5", { status: "N/A" }]]);
+    const failed = await ACP6.validate(unrelatedNa);
+    assert.equal(failed.status, "FAIL");
+    assert.match(failed.message, /No DBA role/);
 });
 
 test("ACP23 compares data type within each Non-US role row", async () => {

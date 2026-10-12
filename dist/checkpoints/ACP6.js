@@ -35,7 +35,13 @@ const ACP6 = {
         if (evidenceUnavailable(databases)) return needsReview(this.id, "The CMDB/GSEP database response is unavailable.");
         if (!Array.isArray(databases) || !databases.length) return skip(this.id, "CMDB/GSEP lists no databases for the application.");
         const dbaRows = getRoleRows(context).filter(row => /\bDBA\b|database administrator/i.test(rowValues(row, "role").join(" ")));
-        if (!dbaRows.length) return fail(this.id, "No DBA role exists in ACP-AR1.");
+        if (!dbaRows.length) {
+            const acp5Result = context.checkpointResults?.get?.("ACP5");
+            if (acp5Result?.status === "N/A" && acp5Result.conditionalAiFallback === true) {
+                return skip(this.id, "ACP5 is N/A because ACP-AI2 documents the accepted no-DBA-role exception.");
+            }
+            return fail(this.id, "No DBA role exists in ACP-AR1.");
+        }
         const ids = collectDbaIds(databases);
         if (!ids.length) return needsReview(this.id, "CMDB/GSEP database records contain no DBA identity IDs.");
         const types = ids.map(id => personType(getCedRecord(context, id))).filter(Boolean);

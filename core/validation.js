@@ -34,6 +34,11 @@ export async function runAiCheckpoint(checkpoint, context, options = {}) {
         };
     }
 
+    return runAiPrompt(checkpoint, context, checkpointPrompt, options);
+}
+
+/** Runs an already-built prompt for a conditional AI fallback. */
+export async function runAiPrompt(checkpoint, context, checkpointPrompt, options = {}) {
     logger.info(`Running AI checkpoint ${checkpoint.id}`);
 
     const normalizedEvidence = (CHECKPOINT_EVIDENCE[checkpoint.id] || [])
@@ -98,6 +103,7 @@ export async function runAiCheckpoint(checkpoint, context, options = {}) {
 export async function validateContext(context, isCancelled, onProgress, options = {}) {
     const checkpoints = getAllCheckpoints();
     const results = [];
+    context.checkpointResults = new Map();
     const assessmentId = context.assessment?.assessmentId || context.detail?.assessmentId || 'unknown';
     const session = options.session || createConversationSession(`validation-${assessmentId}`);
 
@@ -137,24 +143,45 @@ export async function validateContext(context, isCancelled, onProgress, options 
                 };
             } else {
                 const ruleResult = await checkpoint.validate(context);
-                result = {
-                    checkpointId: checkpoint.id,
-                    checkpointName: checkpoint.name,
-                    category: checkpoint.category || 'General',
-                    status: ruleResult.status || 'FAIL',
-                    message: ruleResult.message || '',
-                    evidence: ruleResult.evidence || [],
-                    recommendation: ruleResult.recommendation || '',
-                    requiresHumanVerification: ruleResult.requiresHumanVerification || false,
-                    source: 'RULE'
-                };
+                if (ruleResult.status === 'FAIL' && typeof checkpoint.buildFailurePrompt === 'function') {
+                    const prompt = checkpoint.buildFailurePrompt(context, ruleResult);
+                    const aiResult = await runAiPrompt(checkpoint, context, prompt, { session, signal: options.signal });
+                    result = {
+                        checkpointId: checkpoint.id,
+                        checkpointName: checkpoint.name,
+                        category: checkpoint.category || 'General',
+                        status: aiResult.status,
+                        message: aiResult.reason,
+                        rawResponse: aiResult.rawResponse || null,
+                        isAiError: aiResult.isAiError || false,
+                        evidence: aiResult.evidence || [],
+                        recommendation: aiResult.recommendation || '',
+                        confidence: aiResult.confidence || 0,
+                        requiresHumanVerification: aiResult.requiresHumanVerification || false,
+                        conditionalAiFallback: true,
+                        source: 'AI'
+                    };
+                } else {
+                    result = {
+                        checkpointId: checkpoint.id,
+                        checkpointName: checkpoint.name,
+                        category: checkpoint.category || 'General',
+                        status: ruleResult.status || 'FAIL',
+                        message: ruleResult.message || '',
+                        evidence: ruleResult.evidence || [],
+                        recommendation: ruleResult.recommendation || '',
+                        requiresHumanVerification: ruleResult.requiresHumanVerification || false,
+                        source: 'RULE'
+                    };
+                }
             }
 
             results.push(result);
+            context.checkpointResults.set(checkpoint.id, result);
 
         } catch (err) {
             logger.error(`Checkpoint ${checkpoint.id} threw an error:`, err.message);
-            results.push({
+            const errorResult = {
                 checkpointId: checkpoint.id,
                 checkpointName: checkpoint.name,
                 category: checkpoint.category || 'General',
@@ -162,7 +189,9 @@ export async function validateContext(context, isCancelled, onProgress, options 
                 message: `Unexpected error: ${err.message}`,
                 source: checkpoint.type || 'UNKNOWN',
                 isAiError: checkpoint.type === 'AI'
-            });
+            };
+            results.push(errorResult);
+            context.checkpointResults.set(checkpoint.id, errorResult);
         }
     }
 
