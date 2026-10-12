@@ -328,6 +328,8 @@ test("ACP10 asks AI to evaluate all same-row fields without requiring Applicatio
     }]));
     assert.match(prompt, /Evaluate every ACP-AR1 row separately/);
     assert.match(prompt, /Application Admin is only an example/);
+    assert.match(prompt, /DBA or Database Administrator role, database Write, Elevated, or Admin access/);
+    assert.match(prompt, /do not require Admin access/);
     assert.match(prompt, /"accessToApplication": \[\s*"Read"/);
     assert.doesNotMatch(prompt, /rawItems/);
 });
