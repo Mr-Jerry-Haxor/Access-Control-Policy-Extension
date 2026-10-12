@@ -1,14 +1,22 @@
-import { needsReview } from "./utils.js";
+import { buildReviewPrompt, needsReview, skip } from "./utils.js";
 
 const ACP4 = {
     id: "ACP4",
-    name: "Online Request Form Roles Match",
+    name: "Online request form roles match",
     category: "Access Roles",
-
-    reviewPrompt: `Review this checkpoint against the supplied ACP context. Return JSON only using the ACP review contract: state, whatIsCorrect, whatIsWrong, whyItMatters, howToImprove, suggestedText, evidence, confidence, requiresHumanVerification, and questionsForApplicationTeam. Identify correct content as well as defects. For every applicable checkpoint, suggestedText is required and must be a complete ACP-ready proposed answer that retains verified facts, corrects defects, and uses [PLACEHOLDER] values for unknown facts. Do not invent facts; use NEEDS_VERIFICATION when authoritative evidence is unavailable.`,
     type: "RULE",
+    reviewPrompt: buildReviewPrompt({
+        checkpointId: "ACP4",
+        requirement: "Role names in the documented online request form match ACP-AR1, subject to the listed N/A exceptions.",
+        targetQuestion: "ACP-AR1 and ACP-RAP1",
+        correction: "an exact mismatch list or the evidenced N/A rationale"
+    }),
     async validate(context) {
-        return needsReview(this.id, "Authoritative STAR/MARS online request-form evidence is unavailable, so role coverage cannot be verified.");
+        const requestText = context.getAnswerText?.("ACP-RAP1") || "";
+        if (!/\b(STAR|MARS|IDAP|online (request )?form)\b/i.test(requestText)) {
+            return skip(this.id, "No online request form is documented in ACP-RAP1.");
+        }
+        return needsReview(this.id, "An online request form is documented, but its authoritative role list is not available in the captured CAIRO responses.");
     }
 };
 

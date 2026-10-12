@@ -1,25 +1,36 @@
-import { fail, getAnswerText, getDatabaseApproverRows, hasRoleMatching, pass, skip } from "./utils.js";
+import { buildReviewPrompt, evidenceUnavailable, fail, getRoleRows, needsReview, normalizeText, pass, rowValues, skip, uniqueNormalized } from "./utils.js";
+
+function canonicalEnvironment(value) {
+    const text = normalizeText(value);
+    if (/^(prod|production)$/.test(text)) return "production";
+    if (/^(dev|development)$/.test(text)) return "development";
+    if (/^(test|testing|qa|quality assurance)$/.test(text)) return "test";
+    if (/^(dr|disaster recovery)$/.test(text)) return "disaster recovery";
+    return text;
+}
 
 const ACP15 = {
     id: "ACP15",
-    name: "NPI Database Requirement via CMDB",
-    category: "Non-Person Identifiers",
-
-    reviewPrompt: `Review this checkpoint against the supplied ACP context. Return JSON only using the ACP review contract: state, whatIsCorrect, whatIsWrong, whyItMatters, howToImprove, suggestedText, evidence, confidence, requiresHumanVerification, and questionsForApplicationTeam. Identify correct content as well as defects. For every applicable checkpoint, suggestedText is required and must be a complete ACP-ready proposed answer that retains verified facts, corrects defects, and uses [PLACEHOLDER] values for unknown facts. Do not invent facts; use NEEDS_VERIFICATION when authoritative evidence is unavailable.`,
+    name: "CMDB server environments represented in roles",
+    category: "Access Roles",
     type: "RULE",
+    reviewPrompt: buildReviewPrompt({
+        checkpointId: "ACP15",
+        requirement: "Every server environment listed in CMDB is selected in at least one ACP-AR1 role.",
+        targetQuestion: "ACP-AR1 Environment",
+        correction: "the missing Environment selections by exact CMDB environment"
+    }),
     async validate(context) {
-        const hasDatabaseEvidence = getDatabaseApproverRows(context).length > 0 || hasRoleMatching(context, /\bDBA\b|database administrator/i);
-        const appRecord = (context.supportingData?.esatsBusapp || [])[0] || {};
-        const isInternalWebApp = /internal web/i.test(`${appRecord.baAppTypeCategory || ""} ${appRecord.description || ""}`);
-
-        if (!hasDatabaseEvidence && !isInternalWebApp) {
-            return skip(this.id, "CAIRO and ESATS evidence did not establish that this application requires a database-backed NPI.");
-        }
-
-        const npiAnswer = getAnswerText(context, "ACP-NPI1");
-        return /^yes$/i.test(npiAnswer.trim())
-            ? pass(this.id, "Database/internal-web evidence exists and ACP-NPI1 is Yes.")
-            : fail(this.id, "Database/internal-web evidence exists, but ACP-NPI1 is not Yes.");
+        const servers = context.supportingData?.sisServers;
+        if (evidenceUnavailable(servers)) return needsReview(this.id, "The CMDB/SIS server response is unavailable.");
+        if (!Array.isArray(servers) || !servers.length) return skip(this.id, "CMDB/SIS lists no servers for the application.");
+        const cmdb = uniqueNormalized(servers.map(server => server.environment)).map(canonicalEnvironment).filter(Boolean);
+        if (!cmdb.length) return needsReview(this.id, "CMDB/SIS server records have no environment values.");
+        const selected = new Set(getRoleRows(context).flatMap(row => rowValues(row, "environment")).map(canonicalEnvironment));
+        const missing = cmdb.filter(environment => !selected.has(environment));
+        return missing.length
+            ? fail(this.id, `ACP-AR1 does not select CMDB server environment(s): ${missing.join(", ")}.`)
+            : pass(this.id, `ACP-AR1 represents all CMDB server environments: ${cmdb.join(", ")}.`);
     }
 };
 

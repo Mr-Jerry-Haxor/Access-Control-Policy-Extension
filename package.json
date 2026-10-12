@@ -1,0 +1,11 @@
+{
+  "name": "acp-validator-extension",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test",
+    "build": "node scripts/build.mjs",
+    "verify:har": "node scripts/verify-har.mjs"
+  }
+}

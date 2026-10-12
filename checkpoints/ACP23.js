@@ -1,52 +1,27 @@
-import { getAnswerText, skip } from "./utils.js";
+import { buildReviewPrompt, fail, getRoleRows, needsReview, pass, roleLabel, rowValues, skip } from "./utils.js";
 
 const ACP23 = {
     id: "ACP23",
-    name: "ACP23 Validation",
-    category: "General",
-
-    reviewPrompt: `Review this checkpoint against the supplied ACP context. Return JSON only using the ACP review contract: state, whatIsCorrect, whatIsWrong, whyItMatters, howToImprove, suggestedText, evidence, confidence, requiresHumanVerification, and questionsForApplicationTeam. Identify correct content as well as defects. For every applicable checkpoint, suggestedText is required and must be a complete ACP-ready proposed answer that retains verified facts, corrects defects, and uses [PLACEHOLDER] values for unknown facts. Do not invent facts; use NEEDS_VERIFICATION when authoritative evidence is unavailable.`,
-    type: "AI",
-    buildPrompt(context) {
-        // Gather answers from context
-        const ans_ACP_RAP1 = getAnswerText(context, "ACP-RAP1");
-        if (!ans_ACP_RAP1 || !ans_ACP_RAP1.trim()) return null;
-
-        return `
-Validate ACP23.
-
-Requirement:
-"ACP-RAP1: Describe your request, modify, removal\deactivate process.
-Checkpoint: Is the Account Request process fully documented with step‑by‑step procedures that include clear details for every role?
-Note: Pass/Fail element checklist(all must be Yes to Pass this checkpoint)
-• Who — Each step names the role(s) or position(s) that perform the task.
-• What — Each step describes the specific action or decision to be taken.
-• How — Each step describes the method/tool/workflow used.(e.g: ticket ID, automation, MARS/IDAP, etc.)"
-
-Answer context:
-ACP-RAP1 Answer: ${ans_ACP_RAP1}
-
-Return JSON only:
-{
-    "status": "PASS|FAIL|WARNING",
-    "reason": "..."
-}
-`;
-    },
+    name: "Non-US roles exclude undetermined U.S. export type",
+    category: "Export Compliance",
+    type: "RULE",
+    reviewPrompt: buildReviewPrompt({
+        checkpointId: "ACP23",
+        requirement: "No ACP-AR1 role with Person Status Non-US Person selects US Export - Not Yet Determined.",
+        targetQuestion: "ACP-AR1",
+        correction: "the exact conflicting role rows and Data Type selection to resolve"
+    }),
     async validate(context) {
-        const prompt = this.buildPrompt(context);
-        // Basic check if the prompt ended up with empty answers (assuming the prompt format puts the answer at the end)
-        // A better way: if prompt is null, skip. So we will just add a check:
-        if (!prompt) return skip(this.id, "Missing required data for AI prompt.");
-        
-        // Also check if the prompt's injected answers are empty.
-        // Usually it says "Answer: ${ans_...}". If it's just "Answer: " or "Answer: \n", it's missing.
-        // We will just do a generic check or modify buildPrompt.
-        return {
-            checkpointId: this.id,
-            type: "AI",
-            prompt
-        };
+        const rows = getRoleRows(context);
+        if (!rows.length) return needsReview(this.id, "ACP-AR1 role rows are unavailable.");
+        const nonUsRows = rows.filter(row => rowValues(row, "personStatus").some(value => /non[- ]?us person/i.test(value)));
+        if (!nonUsRows.length) return skip(this.id, "No ACP-AR1 role has Non-US Person status.");
+        const conflicts = nonUsRows.filter(row =>
+            rowValues(row, "dataType").some(value => /^US Export\s*-\s*Not Yet Determined$/i.test(value.trim()))
+        );
+        return conflicts.length
+            ? fail(this.id, `US Export - Not Yet Determined is selected for: ${conflicts.map(roleLabel).join(", ")}.`)
+            : pass(this.id, `None of the ${nonUsRows.length} Non-US role row(s) selects US Export - Not Yet Determined.`);
     }
 };
 

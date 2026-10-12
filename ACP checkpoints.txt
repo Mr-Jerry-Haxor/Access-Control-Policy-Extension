@@ -1,243 +1,226 @@
-ACCESS CONTROL POLICY (ACP) - CHECKPOINTS
-ACP1
-'''
-ACP have both approvals
-'''
-
-category:	Describe the functionality of the application and the business functions it performs
+	ACCESS CONTROL POLICY (ACP)
 
 
-ACP2
-'''
-"ACP-AA1: Describe the functionality of the application and the business functions it performs.
+ACP1	ACP have both approvals
+
+
+
+Question: Describe the functionality of the application and the business functions it performs
+
+
+ACP2	"ACP-AA1: Describe the functionality of the application and the business functions it performs.
 Checkpoint: Is there a statement of the functionality of the application?"
-'''
+	
+	
+Question:	Access Roles
 
-category: Access Roles
+
+ACP3	"ACP-AR1
+Checkpoint:  Do the documented roles match and have a process defined for each of the roles listed in the Request, Approval, and Removal sections of the ACP?"
 
 
-ACP3
-'''
-"ACP-AR1:
-Checkpoint: Do the documented roles match the roles listed in the ""Request/Approval/Removal"" section of the ACP?"
-'''
-
-ACP4
-'''
-"ACP-AR1
-Checkpoint: Do the documented roles match the roles found in an available online request form for the application?
+ACP4	"ACP-AR1
+Checkpoint:  Do the documented roles match the roles found in an available online request form for the application?
 Notes:
  • This could include STAR, MARS, or any other online form as documented in the Request/Approval/Removal section of the ACP.
  • The role names in the online request form must match the role names in the ACP.
  • If there is not an online form documented in the Request/Approval/Removal section of the ACP, answer ""N/A"".
- • If there is information in the Additional Information Section of the ACP explaining the differences, answer “N/A”.
- • If the online form has changed since the approval of the ACP, answer “N/A”.(This can be validated by communicating with the application team.)
+ • If there is information in the Additional Information section of the ACP explaining the differences, answer “N/A”.
+ • If the online form has changed since the approval of the ACP, answer “N/A”.  (This can be validated by communicating with the application team.)
  • Any non-online request form used, answer “N/A”."
-'''
 
-ACP5	
-'''
-"ACP-AR1:
-Checkpoint: If the application has a database listed in CMDB(and is not identified as cloud/container application), does the ACP have a DBA role? 
+
+ACP5	"ACP-AR1
+Checkpoint:  If the application has a database listed in CMDB (and is not identified as cloud/container application), does the ACP have a DBA role? 
 Notes:
  • If there are no databases, answer ""N/A"".  
  • If the databases were incorrectly associated with the application and the application really doesn't have a database, then this question can be answered ""N/A"" as long as the situation is described in the additional information section of the ACP.)"
-'''
 
-ACP6	
-'''
-"ACP-AR1:
-Checkpoint: If the application has a database listed in CMDB(and is not identified as cloud/container application), does the ""Person Type"" in the DBA role match the Person Type for any DBA associated with the application in CMDB?"
-'''
 
-ACP7	
-'''
-"ACP-AR1:
-Checkpoint: Is there an application support role documented in the ACP if the application has the ""Tier 2/3 Technical Support"" role populated in ESATS?
-Notes: If there isn't a Tier 2/3 Technical Support roles populated in ESATS, answer ""N/A"""
-'''
+ACP6	"ACP-AR1
+Checkpoint:  If the application has a database listed in CMDB (and is not identified as cloud/container application), does the ""Person Type"" in the DBA role match the person type for any DBA associated with the application in CMDB?"
 
-ACP8	
-'''
-"ACP-AR1:
-Checkpoint: Does each access role listed in the ACP have responsibilities documented for the actions performed by the role?(The responsibilities must state work tasks performed.)
+
+ACP7	"ACP-AR1
+Checkpoint:  Is there an application support role documented in the ACP if the application has the ""Tier 2/3 Technical Support"" role populated in ESATS?
+Notes:  
+• If there isn't a Tier 2/3 Technical Support roles populated in ESATS, answer ""N/A"""
+
+
+ACP8	"ACP-AR1
+Checkpoint:  Does each access role listed in the ACP have responsibilities documented for the actions performed by the role?  (The responsibilities must state work tasks performed.)
 Notes: 
-• Documented actions must be comensurate to the role title.
-• If people are separated by different roles in ESATS, they should be separate roles in the ACP(for example Developer and Tier 2/3 support.)
-• If there is any information in the Additional Information section of the ACP explaining the absence of responsibilities by the application team's request, answer “N/A""."
-'''
+• Documented actions must be commensurate to the role title.
+•  If people are separated by different roles in ESATS, they should be separate roles in the ACP (for example Developer and Tier 2/3 support.)
+• If there is information in the Additional Information section of the ACP explaining the absence of responsibilities by the application team's request, answer “N/A"".
+• If the application has a database supported by Data Solutions, the responsibilities for the DBA roles need to include verbiage provided from Data Solutions (See related Knowledge Article)."
 
-ACP9	
-'''
-"ACP-AR1:
-Checkpoint:  If ""Boeing"" is selected in the Risk Profiler's CSIR-IPOwner question, is a developer role listed in the Access Roles section of the application ACP?
+
+ACP9	"ACP-AR1
+Checkpoint:  If ""Boeing"" is selected in the Risk Profiler CSIR-IPOwner question, is a developer role listed in the Access Roles section of the application ACP?
 Notes: 
 • Answer ""N/A"" for non-Boeing owned applications."
-'''
 
-ACP10	
-'''
-"ACP-AR1:
-Checkpoint: Does each access role listed in the Access Role section have an Authorized Entity defined with a definable group of people who can have access to the role?
+
+ACP 10	"ACP-AR1
+Checkpoint:  Does each role name listed in the Access Role Section not conflict with other fields within that role?
+Notes: e.g. Application Admin - must have elevated or admin access.  Role names with ""Read-Only"", ""Write"", etc. specifically in the role name must match level of access for that role."
+
+
+ACP11	"ACP-AR1
+Checkpoint:  Does each access role listed in the Access Role Section have an authorized entity defined with a definable group of people who can have access to the role?
 Notes:
- • Does the Authorized Entity for the (Non-Boeing) Developer and (Non-Boeing) Support role match with the Division, Program, Sub Program, and Department Name of the Sponsor in Insite?
- • Does the Authorized Entity for the (Boeing) Developer and (Boeing) Support role match with their Division, Program, Sub Program, and Department Name in Insite?
+ • Does the authorized entity for the (Non-Boeing) Developer and (Non-Boeing) Support role match with the Division, Program, Sub Program, and Department Name of the Sponsor in Insite?
+ • Does the authorized entity for the (Boeing) Developer and (Boeing) Support role match with their Division, Program, Sub Program, and/or Department Name in Insite?  (Listing of the contractor/purchased service company is also okay, but not preferred.)
  • For other roles - Is it a definable group of people?
- • If App teams want to use their team name - ASA should note it down in the Additional Information section
- • Authorized entity can be defined using AD Groups, Project Name, Product name, Attributes, Person Types.
- • Authorized entity cannot reference role name as entity group(circular argument).
- • Authentication methods should not be referenced for authorized entities.(e.g. SecureBadge is used for authentication only, WSSO uses authentication methods like SecureBadge to provide authorization.)"
-'''
+ • If App teams want to use their team name - ASA should note it down in the Additional Notes section
+ • Authorized entity can be defined using AD Groups, Project Name, Product name, Attributes, Person Types
+ • Authorized entity cannot reference role name as entity group (circular argument).
+ • Authentication methods should not be referenced for authorized entities. (e.g. SecureBadge is used for authentication only, WSSO uses authentication methods like SecureBadge to provide authorization.)
+ • Authorized entity must not conflict with entries in the Risk Profiler question CSIR-PersonClass.
+ • Any references to IT&DA should be replaced with Information Digital Technology & Security (IDT&S).
+ • OPTIONAL:  If ASA can login to application, does a role for general users (role name may differ) match the authorized entities for the acces the ASA has? (In other words, if the ASA can login to an application they haven't been specifically granted access to, the authorized entity is probably something like ""anyone who can login to WSSO on the BEN"".)
+ • OPTIONAL:  If roles in the most current access validation match the roles in the ACP, do the approved users listed in the access validation align with the authorized entity statement for that role."
 
-ACP11	
-'''
-"ACP-AR1:
-Checkpoint: Does the Authorized Entity statement (or other statements in the ACP, such as the description, processes, and additional information) not conflict with the Person Status or Person Type for the role? 
-Exception: If the conflict cannot be validated, answer “N/A”.
 
+ACP12	"ACP-AR1
+Checkpoint:  Does the Authorized Entity statement (or other statements in the ACP, such as the description, processes, and additional information) not conflict with the Person Status or Person Type for the role? 
+Exception:  If the conflict cannot be validated, answer “N/A”.
 Note:
-• References to Compute 2.0, Enterprise Compute Program, Dell, TCS, HCL, Tech M, would all be considered to be Purchased Services.  (Included, but not limited to.)
+•  References to Compute 2.0, Enterprise Compute Program, Dell, TCS, HCL, Tech M, would all be considered to be Purchased Services.  (Included, but not limited to.)
 • The BLEAT! tool can be used to verify users' person types:  https://library.web.boeing.com/apps/bleat/"
 
-ACP12	
-'''
-"ACP-AR1:
-Checkpoint: Do all of the roles have at least one Access Level listed as something other than ""None""? 
-Note: All of the Access Levels(Database, Server, and Application) cannot be answered ""None"".  No access could be provisioned for a role with no access to the Database, Server, or Application."
-'''
 
-ACP13	'''
-"ACP-AR1:
-Checkpoint: If the ""Responsibility"" section of a role states what type of access a role has, does it match the appropriate Access Level(Database, Server, and Application) selection?
-
-Note: For example, if the responsibility of a role states that the role has ""read"" access to the application, then the ""Access to Application"" must have ""Read"" selected.  If the responsibility section of all the roles does not state the level of access, then ""N/A"" should be selected."
-'''
+ACP13	"ACP-AR1
+Checkpoint:  Do all of the roles have at least one Access Level listed as something other than ""None""? 
+Note:  All of the Access Levels (Database, Server, and Application) cannot be answered ""None"".  No access could be provisioned for a role with no access to the Database, Server, or Application."
 
 
-
-category:	Does this system/application use Non-Person Identifiers
-
-
-
-ACP14	'''
-"ACP-NPI1:
-Checkpoint: Does the Non-person identifier(ACP-NPI1) in ACP match with the (CSIR-SvcAcct) in Risk Profiler?"
-'''
-
-ACP15	'''
-"ACP-NPI1:
-Checkpoint: If an application is an internal web application or has a database, is there at least one non-person identifier account listed in the ACP? (If application isn't an internal web application or doesn't have a database, answer ""N/A"" to this checkpoint)"
-'''
-
-ACP16	'''
-"ACP-NPI1:
-Checkpoint: Do all Non-Person Identifiers describe the functions that the non-person identifiers perform in the ""Function"" section of the Non-Person Identifiers table?
-Note: The description must include an action that each of the non-person identifiers perform."
-'''
-
-ACP17	
-'''
-"ACP-NPI1:
-Checkpoint: Were the Non-Person Account Owners active employees at the time of ACP review?"
-'''
+ACP14	"ACP-AR1
+Checkpoint:  If the ""Responsibility"" section of a role states what type of access a role has, does it match the appropriate Access Level (Database, Server, and Application) selection?
+Notes:  
+• For example, if the responsibility of a role states that the role has ""read"" (or synonym for ""read"") access to the application, then the ""Access to Application"" must have ""Read"" selected.  
+• If the responsibility section of all the roles does not state the level of access, then ""N/A"" should be selected.
+• Acceptable synonyms are:
+     • Read - View, Read-only, Retrieve, Display, Browse, Inspect, Consume, Download (when action is to copy/receive)
+     • Write - Modify, Read/Write, Write-only, Create, Update, Edit, Append, Change, Commit, Upload, Submit, Delete
+     • Elevated - Privileged, Escalated, Supervisor, Power-user, Special-use, Privileged, 
+     • Admin - Full control, Administrative, Application Administrator, Configuration manager (for the app), Moderator / curator (in some apps)
+     • Root - Superuser, UID=0 account, System Administrator (OS-level), Host Administrator, Local Administrator, Domain Administrator, Enterprise Administrator
+• Boeing guidance treats “local Administrator” and server administrator roles as the OS‑level privileged accounts that must be managed (e.g., via CyberArk, ADM/WS secondary privileged accounts, ANA/UPEP controls) and restricted to administration/maintenance only."
 
 
-category:	Export Compliance Access Rules
+ACP15	"ACP-AR1
+Checkpoint:  Are all of the server environments listed in CMDB also selected at least once in the environments selected in the access roles?
+Note:  There may be more environments selected than what is in CMDB as multiple environments may be on the same server or environments may not be listed in CMDB (e.g. SaaS applications)."
+	
+	
+Question:	Does this system/application use Non-Person Identifiers
 
 
-ACP18	
-'''
-Checkpoint: If this system/application allows Non-US Persons to access any license export technical data like EAR LR and ITAR, is the ICP number and associated data populated to reflect the information contained in the ICP?(If the system/application does not allow Non-US Persons access to any license export technical data, the answer to this checkpoint should be "N/A").
-'''
-
-ACP19	
-'''
-Checkpoint: For every role in ACP-AR1 that has Person Status set to "Non-US Person", is the data type "US Export - Not Yet Determined" not selected? (If there aren't Non-US Persons in the application, select "N/A").
-'''
-
-category:	Personally Identifiable Information Access Rules
+ACP16	"ACP-NPI1 
+Checkpoint:  Does the Non-person identifier (ACP-NPI1) in ACP match with the (CSIR-SvcAcct) in Risk Profiler?"
 
 
-ACP20	
-'''
-"ACP-PIIAR1: Will the application process or grant access to any Personally Identifiable Information (PII)? 
-Checkpoint: Does the answer to ACP-PIIAR1 match with any PII selected data types (CSIR-Data) in Risk Profiler?"
-'''
-
-ACP21	
-'''
-"ACP-PIIAR2: Will the application process or grant access to Highly Sensitive PII, European Union PII, other regulated PII, or sensitive Personally Identifiable Information?
-Checkpoint: If ""CSIR-Data"" in Risk Profiler, has PII other than just NSPII(Highly Sensitive PII, Sensitive PII, or Regulated PII) selected, is ACP-PIIAR2 marked as ""Yes""?"
-'''
-
-ACP22	
-'''
-"ACP-PIIAR3: Have you registered your system with the Global Privacy Office? 
-Checkpoint: If marked ‘Yes’, does the number provided for ACP-PIIAR3 match in the GPO website? (""N/A"" if marked 'No'.)
-Note: DPAR will be replaced by 1PIA in 2026."
-'''
-
-category:	Describe your request, modify, removal\deactivate process
+ACP17	"ACP-NPI1
+Checkpoint:  If an application is an internal web application or has a database, is there at least one non-person identifier account listed in the ACP?  (If application isn't an internal web application or doesn't have a database, answer N/A)"
 
 
-ACP23	
-'''
-"ACP-RAP1: Describe your request, modify, removal\deactivate process.
+ACP18	"ACP-NPI1
+Checkpoint:  Do all Non-Person Identifiers describe the functions that the non-person identifiers perform in the ""Function"" section of the Non-Person Identifiers table?
+Note:  The description must include an action that each of the non-person identifiers perform. "
+
+
+ACP19	"ACP-NPI1
+Checkpoint:  Were the Non-Person Account Owners active employees at the time of ACP review?"
+	
+	
+Question:	Export Compliance Access Rules
+
+
+ACP20	"ACP-EXPORT-1
+Checkpoint:  If this system/application allows Non-US Persons to access any license export technical data like EAR LR and ITAR, do the ICP number and all data fields reflect/match the information contained in the current ICP (based upon completion date of the ACP)? 
+• If the system/application does not allow Non-US Persons access to any license export technical data, the answer to this checkpoint should be ""N/A""."
+
+
+ACP21	"ACP-EXPORT-1
+Checkpoint:  Do all the roles listed in ACP-AR1 which indicate that non-US Persons have access to Export Controlled data (NLR not included) have a corresponding ICP entry in ACP-EXPORT-1 and not conflict with information provided in that role? 
+• If the system/application does not allow Non-US Persons access to any license export data, the answer to this checkpoint should be ""N/A""."
+
+
+ACP22	"Checkpoint:  if any license restricted non-U.S. export-controlled data type is selected (for example: UK Export - Dual Use Controlled-LR) are the following conditions met?:
+• Does the authorized entity field in the role describe what people of which countries are allowed to access the LR data selected.
+• If a person from a different country is mentioned in the authorized entity field of the role or a person from a different country (in other words, U.S. Person) is selected in the Person Status field of the role, then there must be an authorization (from GTC) listed for those people in the Additional Information section of the ACP.
+• If there are no non-U.S. export-controlled data types selected, answer ""N/A"" to this checkpoint."
+
+
+ACP23	Checkpoint:  For every role in ACP-AR1 that has Person Status set to "Non-US Person," is the data type "US Export - Not Yet Determined" not selected?  (If there aren't Non-US Persons in the application, select "N/A".)
+	
+	
+Question:	Describe your request, modify, removal\deactivate process
+
+
+ACP24	"ACP-RAP1: Describe your request, modify, removal\deactivate process
 Checkpoint: Is the Account Request process fully documented with step‑by‑step procedures that include clear details for every role?
-Note: Pass/Fail element checklist(all must be Yes to Pass this checkpoint)
+Pass/Fail element checklist (all must be Yes to Pass)
 • Who — Each step names the role(s) or position(s) that perform the task.
 • What — Each step describes the specific action or decision to be taken.
-• How — Each step describes the method/tool/workflow used.(e.g: ticket ID, automation, MARS/IDAP, etc.)"
-'''
+• How — Each step describes the method/tool/workflow used. (ticket ID, automation, MARS/IDAP, etc.) 
+• There must not be a conflict caused by incorrectness or inconsistencies between the role definitions and the process.  (e.g. web application roles cannot have database account processes.)"
 
-ACP24	
-'''
-"ACP-RAP1: Describe your request, modify, removal\deactivate process.
+
+ACP25	"ACP-RAP1: Describe your request, modify, removal\deactivate process
 Checkpoint: Is the Account Modify process fully documented with step‑by‑step procedures that include clear details for every role?
-Note: Pass/Fail element checklist(all must be Yes to Pass this checkpoint)
+Pass/Fail element checklist (all must be Yes to Pass)
 • Who — Each step names the role(s) or position(s) that perform the task.
 • What — Each step describes the specific action or decision to be taken.
-• How — Each step describes the method/tool/workflow used. (e.g: ticket ID, automation, MARS/IDAP, etc.)"
-'''
+• How — Each step describes the method/tool/workflow used. (ticket ID, automation, MARS/IDAP, etc.)
+• There must not be a conflict caused by incorrectness or inconsistencies between the role definitions and the process.  "
 
-ACP25	'''
-"ACP-RAP1: Describe your request, modify, removal\deactivate process.
+
+ACP26	"ACP-RAP1: Describe your request, modify, removal\deactivate process
 Checkpoint: Is the Account Removal process fully documented with step‑by‑step procedures that include clear details for every role?
-Note: Pass/Fail element checklist(all must be Yes to Pass this checkpoint)
+Note: Pass/Fail element checklist (all must be Yes to Pass)
 • Who — Each step names the role(s) or position(s) that perform the task.
 • What — Each step describes the specific action or decision to be taken.
-• How — Each step describes the method/tool/workflow used. (e.g: ticket ID, automation, MARS/IDAP, etc.)"
-'''
+• How — Each step describes the method/tool/workflow used. (ticket ID, automation, MARS/IDAP, etc.)
+• There must not be a conflict caused by incorrectness or inconsistencies between the role definitions and the process.  (e.g. web application roles cannot have database account processes.)"
 
-ACP26	
-'''
-"ACP-RAP1: Describe your request, modify, removal\deactivate process
+
+ACP27
+"""
+	"ACP-RAP1: Describe your request, modify, removal\deactivate process
 Checkpoint: Does the access removal process not include elements of the access validation process?
-Note: The access removal process does not include elements of the access validation, but is used as part of removing accounts from the results of performing an access validation. In other words, the access validation can refer to the access removal process, but it shouldn't be part of it."
-	Describe your approval process
-'''
+Note: The access removal process does not include elements of the access validation, but is used as part of removing accounts from the results of performing an access validation.  In other words, the access validation can refer to the access removal process, but it shouldn't be part of access removal process.  The access removal process is used by the access validation process for account removals as part of the validation process.  (A mention of the access validation processes existance is okay, but it is not part of the removal process.)"
+"""	
+	
+Question:	Describe your approval process
 
-ACP27	
-'''
-"ACP-RAP2: Describe your approval process
-Checkpoint: Does every role listed in Section ACP AR1 have a step-by-step process which can be performed by a person who is approving/processing access to the application?"
-	Describe the system/applications access validation process
-'''
 
-ACP28	
-'''
-"ACP-RAP3: Describe this system/application's access validation process(both reconciliation and attestation as defined in the GCSSM 6.2) and the resulting artifacts as well as evidence of completion.
-Checkpoint: Is the Account Validation process fully documented with step‑by‑step procedures that include clear details for every role?
-Notes: Pass/Fail element checklist (all must be Yes to Pass this checkpoint)
-• Who — identify the person who obtains the AS-IS user list. This person should be a member of one of the roles listed in the ACP AR1 section or can be listed as a resource for the application in ESATS.
+ACP28
+"""
+	"ACP-RAP2:  Describe your approval process
+Checkpoint:  Does every role listed in Section ACP AR1 have a step-by-step process which can be performed by a person who is approving/processing access to the application?
+Note:  If the application uses STAR for access provisioning, the workflow for approvals in STAR for the application must be written in the approval process section of the ACP."
+"""	
+	
+Question:	Describe the system/applications access validation process
+
+
+ACP29
+"""
+	"ACP-RAP3:  Describe this system/application's access validation process (both reconciliation and attestation as defined in the GCSSM 6.2) and the resulting artifacts as well as evidence of completion
+Checkpoint:  Is the Account Validation process fully documented with step‑by‑step procedures that include clear details for every role and non-person identifiers?
+Notes: Pass/Fail element checklist (all must be Yes to Pass)
+• Who — identify the person who obtains the AS-IS user list.  This person should be a member of one of the roles listed in the ACP AR1 section or is listed as a resource for the application in ESATS (if ESATS role is used and not in the role section of the ACP, then ""as per ESATS"" should be written so the user of the ACP is clear on who is being referred to in the ACP.)
 • Where --  identify where account data and evidence of approvals are obtained and stored.
 • How -- the access validation process must mention how the AS-IS user list is generated.
-• How -- describe the step‑by‑step method how decisions are recorded.
-• How -- show the approval and remediation workflow(who reviews results, how changes are enacted).
-• How -- every role mentioned in Section ACP AR1 has a ""Access Validation"" process specified. This should include non-person identifiers (service accounts as well).
-• All references to ""BASIC"" should be fixed/changed.
+• How -- describe the step‑by‑step method and how decisions are recorded.
+• How -- show the approval and remediation workflow (who reviews results, how changes are enacted).
+• How -- every role mentioned in Section ACP AR1 has a ""Access Validation"" process specified.  
+• How -- non-person identifiers (aka service accounts) also need a process to be validated. (This requirement will be enforced starting with November 2026 reviews)
+• All references to ""BASIC"" should be fixed.
 
 Recommended:
-• How --  Identify how the SHOULD-BE list is generated. (This is actually a requirement, per policy.  But since many application teams cannot provide this information, it is not a part of the quality checklist at this time. Please incorporate into the access validation section if the application has their ""should-be"" list.)"
-'''
-
+• How --  identify how the SHOULD-BE list is generated.  (This is actually a requirement, per policy.  But since many application teams cannot provide this information, it is not a part of the quality checklist at this time.  Please incorporate into the access validation section if the application has their ""should-be"" list.)"
+"""

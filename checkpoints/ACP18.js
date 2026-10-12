@@ -1,35 +1,29 @@
-import { fail, getAnswerText, needsReview, pass, skip } from "./utils.js";
+import { buildReviewPrompt, fail, getAnswerText, getNpiRows, pass, roleLabel, rowValues, skip } from "./utils.js";
+
+const ACTION_VERBS = /\b(authenticat(?:e|es|ing)|authoriz(?:e|es|ing)|allow(?:s|ed|ing)?|connect(?:s|ed|ing)?|communicat(?:e|es|ing)|creat(?:e|es|ing)|delet(?:e|es|ing)|download(?:s|ed|ing)?|execut(?:e|es|ing)|generat(?:e|es|ing)|host(?:s|ed|ing)?|import(?:s|ed|ing)?|integrat(?:e|es|ing)|monitor(?:s|ed|ing)?|process(?:es|ed|ing)?|publish(?:es|ed|ing)?|read(?:s|ing)?|receiv(?:e|es|ing)|retriev(?:e|es|ing)|run(?:s|ning)?|send(?:s|ing)?|serv(?:e|es|ing)|stor(?:e|es|ing)|synchroniz(?:e|es|ing)|transfer(?:s|red|ring)?|updat(?:e|es|ing)|upload(?:s|ed|ing)?|writ(?:e|es|ing))\b/i;
 
 const ACP18 = {
     id: "ACP18",
-    name: "ICP Data Match",
-    category: "Export Compliance",
-
-    reviewPrompt: `Review this checkpoint against the supplied ACP context. Return JSON only using the ACP review contract: state, whatIsCorrect, whatIsWrong, whyItMatters, howToImprove, suggestedText, evidence, confidence, requiresHumanVerification, and questionsForApplicationTeam. Identify correct content as well as defects. For every applicable checkpoint, suggestedText is required and must be a complete ACP-ready proposed answer that retains verified facts, corrects defects, and uses [PLACEHOLDER] values for unknown facts. Do not invent facts; use NEEDS_VERIFICATION when authoritative evidence is unavailable.`,
+    name: "NPI functions describe actions",
+    category: "Non-Person Identifiers",
     type: "RULE",
+    reviewPrompt: buildReviewPrompt({
+        checkpointId: "ACP18",
+        requirement: "Every NPI Function describes an action performed by that identifier.",
+        targetQuestion: "ACP-NPI1 Function",
+        correction: "a short action-oriented Function value for each deficient NPI, using only known purpose facts"
+    }),
     async validate(context) {
-        const nonUsAccess = getAnswerText(context, "ACP-EXPORT-NON-US");
-        const exportData = getAnswerText(context, "ACP-EXPORT-1");
-        const hasControlledData = /EAR License Required|EAR-LR|ITAR/i.test(exportData);
-        if (!/^yes$/i.test(nonUsAccess.trim())) {
-            return hasControlledData
-                ? fail(this.id, "ACP-EXPORT-NON-US is No, but EAR-LR/ITAR was selected in ACP-EXPORT-1. Resolve the contradictory answers.")
-                : skip(this.id, "Non-US access to EAR-LR/ITAR data is not indicated.");
-        }
-        if (!hasControlledData) {
-            return fail(this.id, "ACP-EXPORT-NON-US is Yes, but no EAR-LR or ITAR data selection was found.");
-        }
-
-        const exportQuestion = context.normalizedQuestionMap?.get('ACP-EXPORT-1');
-        if (exportQuestion?.questionDetailLoadError) {
-            return needsReview(this.id, `Export authorization table could not be loaded: ${exportQuestion.questionDetailLoadError}`);
-        }
-        const rows = exportQuestion?.table?.rows || [];
-        if (!rows.length) return fail(this.id, "Non-US access to EAR-LR/ITAR data is indicated, but no export authorization/ICP rows were found.");
-        const authorizationText = exportQuestion.table.text || JSON.stringify(rows);
-        return /ICP|TRAN|EAMS|authorization|license|\b(?:TA|D|M)-?\d/i.test(authorizationText)
-            ? pass(this.id, "Export-controlled non-US access includes export authorization/ICP table evidence.")
-            : fail(this.id, "Export authorization rows exist, but an ICP/export authorization identifier was not found.");
+        if (/^no$/i.test(getAnswerText(context, "ACP-NPI1").trim())) return skip(this.id, "ACP-NPI1 is No.");
+        const rows = getNpiRows(context);
+        if (!rows.length) return fail(this.id, "No NPI table rows are listed.");
+        const invalid = rows.filter(row => {
+            const text = rowValues(row, "function").join(" ");
+            return !text || !ACTION_VERBS.test(text);
+        });
+        return invalid.length
+            ? fail(this.id, `Function is missing or not action-oriented for: ${invalid.map(row => rowValues(row, "nonPersonIdentifier")[0] || roleLabel(row)).join(", ")}.`)
+            : pass(this.id, `All ${rows.length} NPI Function value(s) describe an action.`);
     }
 };
 

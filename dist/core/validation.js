@@ -1,0 +1,215 @@
+/**
+ * core/validation.js
+ * Validates assessment contexts against all registered checkpoints.
+ * Handles RULE-based, AI-based checkpoint types with full error capture.
+ */
+
+import { getAllCheckpoints } from './checkpoint.js';
+import { sendPrompt, extractJson, createConversationSession } from '../ai/aiService.js';
+import { logger } from '../utils/utils.js';
+import { CONFIG } from '../utils/constants.js';
+import { ACP_REVIEW_GUIDANCE } from '../knowledge/acpReviewGuidance.js';
+import { CHECKPOINT_EVIDENCE } from '../knowledge/checkpointEvidenceMap.js';
+
+// ============================================================
+// AI Checkpoint Runner
+// ============================================================
+
+/**
+ * Runs an AI checkpoint: builds the prompt, sends it to BCAI,
+ * parses the JSON response, and returns a standardized result.
+ * If buildPrompt returns null/undefined (missing data), returns N/A.
+ * @param {object} checkpoint
+ * @param {object} context
+ * @returns {Promise<{ status: string, reason: string }>}
+ */
+export async function runAiCheckpoint(checkpoint, context, options = {}) {
+    const checkpointPrompt = checkpoint.buildPrompt(context);
+    
+    // Checkpoint opted out — missing data
+    if (!checkpointPrompt) {
+        return {
+            status: 'N/A',
+            reason: 'Required context data is missing for this checkpoint.'
+        };
+    }
+
+    logger.info(`Running AI checkpoint ${checkpoint.id}`);
+
+    const normalizedEvidence = (CHECKPOINT_EVIDENCE[checkpoint.id] || [])
+        .map(id => context.normalizedQuestionMap?.get(String(id)))
+        .filter(Boolean);
+    const prompt = `${checkpointPrompt}\n\nACP POLICY AND AUTHORING GUIDANCE:\n${ACP_REVIEW_GUIDANCE}\n\nNORMALIZED CHECKPOINT EVIDENCE:\n${JSON.stringify(normalizedEvidence)}\n\nReturn JSON only with status (PASS, FAIL, NA, or REVIEW), reason, evidence, recommendation, confidence, and requiresHumanVerification. Use REVIEW rather than PASS when authoritative external evidence is unavailable.`;
+
+    let rawResponse = '';
+    let parsed = null;
+    let lastError = null;
+    for (let attempt = 1; attempt <= CONFIG.AI_RETRY_ATTEMPTS; attempt++) {
+        try {
+            rawResponse = await sendPrompt(prompt, options);
+            parsed = extractJson(rawResponse);
+            if (!parsed) throw new Error('Boeing AI returned unparseable JSON.');
+            break;
+        } catch (aiErr) {
+            if (options.signal?.aborted || aiErr?.name === 'AbortError') throw aiErr;
+            lastError = aiErr;
+            logger.warn(`AI checkpoint ${checkpoint.id} attempt ${attempt}/${CONFIG.AI_RETRY_ATTEMPTS} failed:`, aiErr.message);
+        }
+    }
+    if (!parsed) {
+        const errorDetail = lastError?.message || 'Boeing AI returned a response that could not be parsed as JSON.';
+        logger.error(`AI checkpoint ${checkpoint.id} BCAI error:`, errorDetail);
+        return {
+            status: 'ERROR',
+            reason: `Boeing AI conversation failed after retry: ${errorDetail}`,
+            isAiError: true,
+            rawResponse: rawResponse?.slice(0, 500)
+        };
+    }
+
+    // Normalize: accept status/reason or status/message
+    const parsedStatus = String(parsed.status || 'FAIL').toUpperCase();
+    return {
+        status: parsedStatus === 'NA' ? 'N/A' : parsedStatus,
+        reason: parsed.reason || parsed.message || 'No reason provided.',
+        evidence: parsed.evidence || [],
+        recommendation: parsed.recommendation || parsed.howToImprove || parsed.how_to_improve || '',
+        confidence: Number(parsed.confidence) || 0,
+        requiresHumanVerification: parsed.requiresHumanVerification ?? parsed.requires_human_verification ?? false
+    };
+}
+
+// ============================================================
+// Single Context Validator
+// ============================================================
+
+/**
+ * Runs all registered checkpoints against a single context.
+ * Each checkpoint is handled independently so one failure
+ * does not block the rest.
+ * @param {object} context
+ * @param {Function} [isCancelled] - async function returning true if cancelled
+ * @returns {Promise<Array>} Array of checkpoint result objects
+ */
+export async function validateContext(context, isCancelled, onProgress, options = {}) {
+    const checkpoints = getAllCheckpoints();
+    const results = [];
+    const assessmentId = context.assessment?.assessmentId || context.detail?.assessmentId || 'unknown';
+    const session = options.session || createConversationSession(`validation-${assessmentId}`);
+
+    for (const checkpoint of checkpoints) {
+        // Check cancellation before each checkpoint
+        if (isCancelled && await isCancelled()) {
+            results.push({
+                checkpointId: checkpoint.id,
+                checkpointName: checkpoint.name,
+                category: checkpoint.category || 'General',
+                status: 'CANCELLED',
+                message: 'Validation was cancelled by user.',
+                source: checkpoint.type || 'UNKNOWN'
+            });
+            continue;
+        }
+
+        try {
+            await onProgress?.(`Validating checkpoint ${checkpoint.id}: ${checkpoint.name}`);
+            let result;
+
+            if (checkpoint.type === 'AI') {
+                const aiResult = await runAiCheckpoint(checkpoint, context, { session, signal: options.signal });
+                result = {
+                    checkpointId: checkpoint.id,
+                    checkpointName: checkpoint.name,
+                    category: checkpoint.category || 'General',
+                    status: aiResult.status,
+                    message: aiResult.reason,
+                    rawResponse: aiResult.rawResponse || null,
+                    isAiError: aiResult.isAiError || false,
+                    evidence: aiResult.evidence || [],
+                    recommendation: aiResult.recommendation || '',
+                    confidence: aiResult.confidence || 0,
+                    requiresHumanVerification: aiResult.requiresHumanVerification || false,
+                    source: 'AI'
+                };
+            } else {
+                const ruleResult = await checkpoint.validate(context);
+                result = {
+                    checkpointId: checkpoint.id,
+                    checkpointName: checkpoint.name,
+                    category: checkpoint.category || 'General',
+                    status: ruleResult.status || 'FAIL',
+                    message: ruleResult.message || '',
+                    evidence: ruleResult.evidence || [],
+                    recommendation: ruleResult.recommendation || '',
+                    requiresHumanVerification: ruleResult.requiresHumanVerification || false,
+                    source: 'RULE'
+                };
+            }
+
+            results.push(result);
+
+        } catch (err) {
+            logger.error(`Checkpoint ${checkpoint.id} threw an error:`, err.message);
+            results.push({
+                checkpointId: checkpoint.id,
+                checkpointName: checkpoint.name,
+                category: checkpoint.category || 'General',
+                status: 'ERROR',
+                message: `Unexpected error: ${err.message}`,
+                source: checkpoint.type || 'UNKNOWN',
+                isAiError: checkpoint.type === 'AI'
+            });
+        }
+    }
+
+    return results;
+}
+
+// ============================================================
+// Batch Context Validator
+// ============================================================
+
+/**
+ * Runs validation for multiple contexts sequentially.
+ * @param {Array} contexts
+ * @param {Function} [isCancelled] - optional async cancel check
+ * @returns {Promise<Array<{ assessmentId, assessmentTitle, results }>>}
+ */
+export async function validateContexts(contexts, isCancelled) {
+    const validationResults = [];
+
+    for (const context of contexts) {
+        if (isCancelled && await isCancelled()) break;
+
+        const assessmentId =
+            context.assessment?.assessmentId ||
+            context.detail?.assessmentId ||
+            null;
+
+        const assessmentTitle =
+            context.assessment?.title ||
+            context.detail?.assetName ||
+            `Assessment ${assessmentId}`;
+
+        if (context.buildError) {
+            validationResults.push({
+                assessmentId,
+                assessmentTitle,
+                results: [{
+                    checkpointId: 'SETUP',
+                    checkpointName: 'Context Gathering',
+                    category: 'System',
+                    status: 'ERROR',
+                    message: `Failed to load assessment data: ${context.buildError}`,
+                    source: 'SYSTEM'
+                }]
+            });
+            continue;
+        }
+
+        const results = await validateContext(context, isCancelled);
+        validationResults.push({ assessmentId, assessmentTitle, results });
+    }
+
+    return validationResults;
+}

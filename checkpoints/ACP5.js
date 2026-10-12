@@ -1,23 +1,30 @@
-import { fail, getDatabaseApproverRows, hasRoleMatching, needsReview, pass } from "./utils.js";
+import { buildReviewPrompt, evidenceUnavailable, fail, hasRoleMatching, needsReview, pass, skip } from "./utils.js";
 
 const ACP5 = {
     id: "ACP5",
-    name: "DBA Role Validation via CMDB",
+    name: "Database application has a DBA role",
     category: "Access Roles",
-
-    reviewPrompt: `Review this checkpoint against the supplied ACP context. Return JSON only using the ACP review contract: state, whatIsCorrect, whatIsWrong, whyItMatters, howToImprove, suggestedText, evidence, confidence, requiresHumanVerification, and questionsForApplicationTeam. Identify correct content as well as defects. For every applicable checkpoint, suggestedText is required and must be a complete ACP-ready proposed answer that retains verified facts, corrects defects, and uses [PLACEHOLDER] values for unknown facts. Do not invent facts; use NEEDS_VERIFICATION when authoritative evidence is unavailable.`,
     type: "RULE",
+    reviewPrompt: buildReviewPrompt({
+        checkpointId: "ACP5",
+        requirement: "A non-cloud/non-container application with a CMDB database has a DBA role in ACP-AR1.",
+        targetQuestion: "ACP-AR1",
+        correction: "the missing DBA role fields, or the evidenced N/A rationale"
+    }),
     async validate(context) {
-        const databaseApprovers = getDatabaseApproverRows(context);
-        const hasDatabaseEvidence = databaseApprovers.length > 0 || hasRoleMatching(context, /\bDBA\b|database administrator/i);
-
-        if (!hasDatabaseEvidence) {
-            return needsReview(this.id, "No authoritative CMDB or CAIRO database evidence was available to establish DBA-role applicability.");
+        const databases = context.supportingData?.gsepDatabases;
+        if (evidenceUnavailable(databases)) return needsReview(this.id, "The CMDB/GSEP database response is unavailable.");
+        if (!Array.isArray(databases) || databases.length === 0) return skip(this.id, "CMDB/GSEP lists no databases for the application.");
+        const classification = JSON.stringify([
+            context.supportingData?.esatsBusapp || [],
+            context.supportingData?.assetLabels || []
+        ]);
+        if (/\b(cloud|container|saas|paas)\b/i.test(classification)) {
+            return skip(this.id, "The application is explicitly identified as cloud/container hosted.");
         }
-
         return hasRoleMatching(context, /\bDBA\b|database administrator/i)
-            ? pass(this.id, "Database evidence exists and ACP-AR1 includes a DBA role.")
-            : fail(this.id, "Database evidence exists, but ACP-AR1 does not include a DBA role.");
+            ? pass(this.id, `CMDB/GSEP lists ${databases.length} database record(s), and ACP-AR1 contains a DBA role.`)
+            : fail(this.id, `CMDB/GSEP lists ${databases.length} database record(s), but ACP-AR1 has no DBA role.`);
     }
 };
 

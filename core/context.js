@@ -21,6 +21,9 @@ import {
     getSurveyQuestionDetail,
     getEsatsRoles,
     getEsatsBusapp,
+    getGsepDatabases,
+    getSisServerIds,
+    getSisServers,
     getIdentities,
     getCedPublic,
     searchAssetLabels
@@ -297,18 +300,22 @@ function collectIdentityIds({ assessment, detail, assessmentContacts, contacts }
     return [...ids];
 }
 
-function collectBemsIdsFromRows(rows) {
+function collectBemsIdsFromValues(values) {
     const ids = new Set();
-    for (const row of rows || []) {
-        for (const value of Object.values(row)) {
-            const values = Array.isArray(value) ? value : [value];
-            for (const item of values) {
-                if (/^\d{3,}$/.test(String(item || '').trim())) {
-                    ids.add(String(item).trim());
-                }
-            }
+    const visit = value => {
+        if (Array.isArray(value)) {
+            value.forEach(visit);
+            return;
         }
-    }
+        if (value && typeof value === 'object') {
+            Object.values(value).forEach(visit);
+            return;
+        }
+        if (/^\d{3,}$/.test(String(value || '').trim())) {
+            ids.add(String(value).trim());
+        }
+    };
+    visit(values);
     return [...ids];
 }
 
@@ -319,7 +326,7 @@ async function buildSupportingData({ assessment, detail, questions, questionMap 
     const assessmentTypeId = Number(detail?.assessmentTypeId || 48);
     const surveyTemplateId = detail?.surveyTemplateId;
 
-    const [assetSummary, reviewSummaries, assessmentContacts, contacts, assets, workflowSteps, assessmentRecord, surveyTemplate, questionGroups, esatsRoles, esatsBusapp, assetLabels] = await Promise.all([
+    const [assetSummary, reviewSummaries, assessmentContacts, contacts, assets, workflowSteps, assessmentRecord, surveyTemplate, questionGroups, esatsRoles, esatsBusapp, assetLabels, gsepDatabases, sisServerIds] = await Promise.all([
         getAssessmentAssetSummary(assetId, assetTypeId, assessmentTypeId).catch(err => ({ error: err.message })),
         getReviewSummaries(assetId, assetTypeId, assessmentTypeId).catch(err => ({ error: err.message })),
         getAssessmentContacts(assessmentId).catch(err => ({ error: err.message })),
@@ -331,8 +338,12 @@ async function buildSupportingData({ assessment, detail, questions, questionMap 
         getQuestionGroups(surveyTemplateId).catch(err => ({ error: err.message })),
         getEsatsRoles(assetId).catch(err => ({ error: err.message })),
         getEsatsBusapp(assetId).catch(err => ({ error: err.message })),
-        searchAssetLabels(assessmentId).catch(err => ({ error: err.message }))
+        searchAssetLabels(assessmentId).catch(err => ({ error: err.message })),
+        getGsepDatabases(assetId).catch(err => ({ error: err.message })),
+        getSisServerIds(assetId).catch(err => ({ error: err.message }))
     ]);
+    const serverIds = Array.isArray(sisServerIds) ? sisServerIds.map(item => item.serverId).filter(Boolean) : [];
+    const sisServers = await getSisServers(serverIds).catch(err => ({ error: err.message }));
 
     const questionDetails = {};
     const uniqueQuestions = [...new Map((questions || []).map(question => [question.surveyTemplateQuestionId, question])).values()];
@@ -361,7 +372,7 @@ async function buildSupportingData({ assessment, detail, questions, questionMap 
     const identityIds = collectIdentityIds({ assessment, detail, assessmentContacts, contacts });
     const identities = await getIdentities(identityIds).catch(err => ({ error: err.message }));
     const allTableRows = Object.values(questionTables).flatMap(table => table.rows || []);
-    const cedIds = collectBemsIdsFromRows(allTableRows);
+    const cedIds = collectBemsIdsFromValues([allTableRows, gsepDatabases]);
     const cedPublic = {};
     for (const bemsId of cedIds) {
         try {
@@ -391,6 +402,9 @@ async function buildSupportingData({ assessment, detail, questions, questionMap 
         esatsRoles,
         esatsBusapp,
         assetLabels,
+        gsepDatabases,
+        sisServerIds,
+        sisServers,
         identities,
         cedPublic
     };

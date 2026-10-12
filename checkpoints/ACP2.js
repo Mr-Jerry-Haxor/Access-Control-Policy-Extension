@@ -1,18 +1,22 @@
-import { getAnswerText, pass, fail } from "./utils.js";
+import { buildReviewPrompt, fail, getAnswerText, pass } from "./utils.js";
 
 const ACP2 = {
     id: "ACP2",
-    name: "Application Functionality Statement",
-    category: "General",
-
-    reviewPrompt: `Review this checkpoint against the supplied ACP context. Return JSON only using the ACP review contract: state, whatIsCorrect, whatIsWrong, whyItMatters, howToImprove, suggestedText, evidence, confidence, requiresHumanVerification, and questionsForApplicationTeam. Identify correct content as well as defects. For every applicable checkpoint, suggestedText is required and must be a complete ACP-ready proposed answer that retains verified facts, corrects defects, and uses [PLACEHOLDER] values for unknown facts. Do not invent facts; use NEEDS_VERIFICATION when authoritative evidence is unavailable.`,
+    name: "Application functionality statement",
+    category: "Application Description",
     type: "RULE",
+    reviewPrompt: buildReviewPrompt({
+        checkpointId: "ACP2",
+        requirement: "ACP-AA1 contains a meaningful statement of application functionality and business functions.",
+        targetQuestion: "ACP-AA1",
+        correction: "a concise replacement description using only evidenced application and business-function facts"
+    }),
     async validate(context) {
-        const text = getAnswerText(context, "ACP-AA1");
-        if (text && text.trim().length > 0) {
-            return pass(this.id, "Functionality statement is present.");
+        const text = getAnswerText(context, "ACP-AA1").trim();
+        if (!text || /^(n\/?a|none|not applicable)$/i.test(text)) {
+            return fail(this.id, "ACP-AA1 does not contain a functionality statement.");
         }
-        return fail(this.id, "No functionality statement found for ACP-AA1.");
+        return pass(this.id, "ACP-AA1 contains a functionality statement.");
     }
 };
 

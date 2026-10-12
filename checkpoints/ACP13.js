@@ -1,50 +1,26 @@
-import { getAnswerText, skip } from "./utils.js";
+import { buildReviewPrompt, fail, getRoleRows, needsReview, normalizeText, pass, roleLabel, rowValues } from "./utils.js";
 
 const ACP13 = {
     id: "ACP13",
-    name: "ACP13 Validation",
-    category: "General",
-
-    reviewPrompt: `Review this checkpoint against the supplied ACP context. Return JSON only using the ACP review contract: state, whatIsCorrect, whatIsWrong, whyItMatters, howToImprove, suggestedText, evidence, confidence, requiresHumanVerification, and questionsForApplicationTeam. Identify correct content as well as defects. For every applicable checkpoint, suggestedText is required and must be a complete ACP-ready proposed answer that retains verified facts, corrects defects, and uses [PLACEHOLDER] values for unknown facts. Do not invent facts; use NEEDS_VERIFICATION when authoritative evidence is unavailable.`,
-    type: "AI",
-    buildPrompt(context) {
-        // Gather answers from context
-        const ans_ACP_AR1 = getAnswerText(context, "ACP-AR1");
-        if (!ans_ACP_AR1 || !ans_ACP_AR1.trim()) return null;
-
-        return `
-Validate ACP13.
-
-Requirement:
-"ACP-AR1:
-Checkpoint: If the ""Responsibility"" section of a role states what type of access a role has, does it match the appropriate Access Level(Database, Server, and Application) selection?
-
-Note: For example, if the responsibility of a role states that the role has ""read"" access to the application, then the ""Access to Application"" must have ""Read"" selected.  If the responsibility section of all the roles does not state the level of access, then ""N/A"" should be selected."
-
-Answer context:
-ACP-AR1 Answer: ${ans_ACP_AR1}
-
-Return JSON only:
-{
-    "status": "PASS|FAIL|WARNING",
-    "reason": "..."
-}
-`;
-    },
+    name: "Every role has an access level",
+    category: "Access Roles",
+    type: "RULE",
+    reviewPrompt: buildReviewPrompt({
+        checkpointId: "ACP13",
+        requirement: "Every role has at least one Database, Server, or Application access level other than None.",
+        targetQuestion: "ACP-AR1",
+        correction: "the missing access-level field for each deficient role"
+    }),
     async validate(context) {
-        const prompt = this.buildPrompt(context);
-        // Basic check if the prompt ended up with empty answers (assuming the prompt format puts the answer at the end)
-        // A better way: if prompt is null, skip. So we will just add a check:
-        if (!prompt) return skip(this.id, "Missing required data for AI prompt.");
-        
-        // Also check if the prompt's injected answers are empty.
-        // Usually it says "Answer: ${ans_...}". If it's just "Answer: " or "Answer: \n", it's missing.
-        // We will just do a generic check or modify buildPrompt.
-        return {
-            checkpointId: this.id,
-            type: "AI",
-            prompt
-        };
+        const rows = getRoleRows(context);
+        if (!rows.length) return needsReview(this.id, "ACP-AR1 role rows are unavailable.");
+        const invalid = rows.filter(row => {
+            const levels = rowValues(row, "accessToDB", "accessToServer", "accessToApplication").map(normalizeText);
+            return !levels.length || levels.every(level => !level || level === "none");
+        });
+        return invalid.length
+            ? fail(this.id, `All access levels are None or missing for: ${invalid.map(roleLabel).join(", ")}.`)
+            : pass(this.id, `All ${rows.length} role row(s) have at least one non-None access level.`);
     }
 };
 

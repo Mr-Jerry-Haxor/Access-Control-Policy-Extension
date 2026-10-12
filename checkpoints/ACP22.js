@@ -1,14 +1,34 @@
-import { needsReview } from "./utils.js";
+import { buildAiValidationPrompt, buildReviewPrompt, formatRoleRowsForAi, getAdditionalInformation, skip } from "./utils.js";
+
+const REQUIREMENT = "For each role with license-restricted non-U.S. export data, Authorized Entity states the allowed countries; any different-country or U.S.-Person access has a GTC authorization in Additional Information.";
 
 const ACP22 = {
     id: "ACP22",
-    name: "GPO Registration Match",
-    category: "PII Access Rules",
-
-    reviewPrompt: `Review this checkpoint against the supplied ACP context. Return JSON only using the ACP review contract: state, whatIsCorrect, whatIsWrong, whyItMatters, howToImprove, suggestedText, evidence, confidence, requiresHumanVerification, and questionsForApplicationTeam. Identify correct content as well as defects. For every applicable checkpoint, suggestedText is required and must be a complete ACP-ready proposed answer that retains verified facts, corrects defects, and uses [PLACEHOLDER] values for unknown facts. Do not invent facts; use NEEDS_VERIFICATION when authoritative evidence is unavailable.`,
-    type: "RULE",
+    name: "License-restricted country and authorization rules",
+    category: "Export Compliance",
+    type: "AI",
+    reviewPrompt: buildReviewPrompt({
+        checkpointId: "ACP22",
+        requirement: REQUIREMENT,
+        targetQuestion: "ACP-AR1 Authorized Entity and ACP-AI2",
+        correction: "the missing country restriction or authorization reference for each applicable role, with placeholders for unavailable GTC facts"
+    }),
+    buildPrompt(context) {
+        const roles = formatRoleRowsForAi(context);
+        if (!roles.length) return null;
+        return buildAiValidationPrompt({
+            checkpointId: this.id,
+            requirement: REQUIREMENT,
+            decisionRules: "NA when no role has a non-U.S. license-restricted data type. Do not treat U.S. NLR as license restricted. FAIL when applicable Authorized Entity omits countries or when a different-country/U.S.-Person population lacks an evidenced GTC authorization.",
+            evidence: {
+                accessRoles: roles,
+                additionalInformation: getAdditionalInformation(context)
+            }
+        });
+    },
     async validate(context) {
-        return needsReview(this.id, "Authoritative GPO/1PIA registration evidence is unavailable, so registration cannot be verified.");
+        const prompt = this.buildPrompt(context);
+        return prompt ? { checkpointId: this.id, type: "AI", prompt } : skip(this.id, "ACP-AR1 has no role rows.");
     }
 };
 

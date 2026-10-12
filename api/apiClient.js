@@ -11,14 +11,23 @@ import { replaceTokens, logger } from '../utils/utils.js';
 // Cairo API — ACP Data
 // ============================================================
 
+function unwrapCairoData(value) {
+    return value && !Array.isArray(value) && Object.prototype.hasOwnProperty.call(value, 'data')
+        ? value.data
+        : value;
+}
+
 export async function getACPList() {
-    const data = await fetchJson(URLS.PRIMARY_ACPS);
+    const data = unwrapCairoData(await fetchJson(URLS.PRIMARY_ACPS));
     if (!Array.isArray(data)) return [];
     
     return data.map(item => {
         const isIncomplete = !!(item.incompleteAssessmentId || item.incompleteInitiatedOn);
         return {
             assessmentId: item.incompleteAssessmentId || item.lastAssessmentId || Number(item.assetId),
+            assetId: item.assetId,
+            assetTypeId: item.assetTypeId || 4,
+            assetSourceId: item.assetSourceId || 82,
             title: item.assetName || 'Unknown Title',
             owner: isIncomplete ? item.incompleteInitiatedByName : item.attestName,
             status: isIncomplete ? 'Incomplete' : 'Completed',
@@ -45,7 +54,7 @@ export async function getACPAnswers(assessmentId) {
 export async function getACPQuestions(surveyTemplateId) {
     if (!surveyTemplateId) return [];
     const url = replaceTokens(URLS.ACP_QUESTIONS, { id: surveyTemplateId });
-    return fetchJson(url);
+    return unwrapCairoData(await fetchJson(url));
 }
 
 export async function getAssessmentAssetSummary(assetId, assetTypeId = 4, assessmentTypeId = 48) {
@@ -55,7 +64,7 @@ export async function getAssessmentAssetSummary(assetId, assetTypeId = 4, assess
 
 export async function getReviewSummaries(assetId, assetTypeId = 4, assessmentTypeId = 48) {
     if (!assetId) return [];
-    return fetchJson(replaceTokens(URLS.ACP_REVIEW_SUMMARIES, { assetId, assetTypeId, assessmentTypeId }));
+    return unwrapCairoData(await fetchJson(replaceTokens(URLS.ACP_REVIEW_SUMMARIES, { assetId, assetTypeId, assessmentTypeId })));
 }
 
 export async function getAssessmentContacts(assessmentId) {
@@ -70,7 +79,7 @@ export async function getContacts(assessmentId) {
 
 export async function getAssessmentAssets(assessmentId, extra = 'SERVER_ACP') {
     if (!assessmentId) return [];
-    return fetchJson(replaceTokens(URLS.ACP_ASSETS, { id: assessmentId, extra }));
+    return unwrapCairoData(await fetchJson(replaceTokens(URLS.ACP_ASSETS, { id: assessmentId, extra })));
 }
 
 export async function getWorkflowSteps(assessmentId) {
@@ -95,7 +104,7 @@ export async function getQuestionGroups(surveyTemplateId) {
 
 export async function getSurveyQuestionDetail(assessmentId, questionId) {
     if (!assessmentId || !questionId) return null;
-    return fetchJson(replaceTokens(URLS.ACP_SURVEY_QUESTION, { assessmentId, questionId }), { useCache: false });
+    return unwrapCairoData(await fetchJson(replaceTokens(URLS.ACP_SURVEY_QUESTION, { assessmentId, questionId }), { useCache: false }));
 }
 
 export async function getEsatsRoles(assetId) {
@@ -108,6 +117,22 @@ export async function getEsatsBusapp(assetId) {
     return fetchJson(replaceTokens(URLS.ESATS_BUSAPP, { assetId }));
 }
 
+export async function getGsepDatabases(assetId) {
+    if (!assetId) return [];
+    return fetchJson(replaceTokens(URLS.GSEP_DATABASES, { assetId }));
+}
+
+export async function getSisServerIds(assetId) {
+    if (!assetId) return [];
+    return fetchJson(replaceTokens(URLS.SIS_SERVER_IDS, { assetId }));
+}
+
+export async function getSisServers(serverIds) {
+    const ids = [...new Set((serverIds || []).filter(Boolean).map(String))];
+    if (!ids.length) return [];
+    return fetchJson(replaceTokens(URLS.SIS_SERVERS, { serverIds: ids.join('|') }));
+}
+
 export async function getIdentities(identityIds) {
     const ids = [...new Set((identityIds || []).filter(Boolean).map(String))];
     if (!ids.length) return [];
@@ -116,7 +141,7 @@ export async function getIdentities(identityIds) {
 
 export async function getCedPublic(bemsId) {
     if (!bemsId) return [];
-    return fetchJson(replaceTokens(URLS.CED_PUBLIC, { bemsId }), { useCache: false });
+    return unwrapCairoData(await fetchJson(replaceTokens(URLS.CED_PUBLIC, { bemsId }), { useCache: false }));
 }
 
 export async function searchAssetLabels(assessmentId) {

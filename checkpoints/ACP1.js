@@ -1,95 +1,32 @@
-import {
-    collectValuesByKey,
-    fail,
-    findAssessmentById,
-    needsReview,
-    pass,
-    skip
-}
-from "./utils.js";
+import { buildReviewPrompt, collectValuesByKey, fail, findAssessmentById, needsReview, pass } from "./utils.js";
 
 const ACP1 = {
-
     id: "ACP1",
-
     name: "ACP has both approvals",
-
     category: "Approvals",
-
-    reviewPrompt: `Review this checkpoint against the supplied ACP context. Return JSON only using the ACP review contract: state, whatIsCorrect, whatIsWrong, whyItMatters, howToImprove, suggestedText, evidence, confidence, requiresHumanVerification, and questionsForApplicationTeam. Identify correct content as well as defects. For every applicable checkpoint, suggestedText is required and must be a complete ACP-ready proposed answer that retains verified facts, corrects defects, and uses [PLACEHOLDER] values for unknown facts. Do not invent facts; use NEEDS_VERIFICATION when authoritative evidence is unavailable.`,
-
+    type: "RULE",
+    reviewPrompt: buildReviewPrompt({
+        checkpointId: "ACP1",
+        requirement: "The current ACP assessment has both required approvals.",
+        targetQuestion: "assessment review summary",
+        correction: "a short list of the missing or non-approved approval records; do not draft fictional approvals"
+    }),
     async validate(context) {
-
-        const assessmentId =
-            context?.application?.assessmentId ||
-            context?.assessment?.assessmentId;
-
-        if (!assessmentId) {
-
-            return fail(
-                this.id,
-                "Assessment ID not found."
-            );
+        const assessmentId = context?.assessment?.assessmentId || context?.detail?.assessmentId;
+        if (!assessmentId) return needsReview(this.id, "Assessment ID is unavailable.");
+        if (!Array.isArray(context?.reviewSummary)) {
+            return needsReview(this.id, "The CAIRO review-summary response is unavailable.");
         }
-
-        const matchedAssessment =
-            findAssessmentById(
-                context?.reviewSummary,
-                assessmentId
-            );
-
-        if (!matchedAssessment) {
-
-            return fail(
-                this.id,
-                `Assessment ${assessmentId} not found in review summary.`
-            );
-        }
-
-        const votes =
-            collectValuesByKey(
-                matchedAssessment,
-                "voteCode"
-            )
+        const current = findAssessmentById(context.reviewSummary, assessmentId);
+        if (!current) return needsReview(this.id, `Assessment ${assessmentId} is absent from the review-summary response.`);
+        const votes = collectValuesByKey(current.reviews || current, "voteCode")
+            .map(value => String(value || "").trim().toUpperCase())
             .filter(Boolean);
-
-        if (votes.length === 0) {
-            return needsReview(
-                this.id,
-                "Review summary endpoint was loaded, but approval voteCode values were not present in the CAIRO response."
-            );
-        }
-
-        if (
-            votes.length < 2
-        ) {
-
-            return fail(
-                this.id,
-                `Expected 2 approvals but found ${votes.length}.`
-            );
-        }
-
-        const approved =
-            votes
-            .slice(0, 2)
-            .every(
-                vote =>
-                    String(vote)
-                    .trim() === "A"
-            );
-
-        return approved
-
-            ? pass(
-                this.id,
-                "Both approval vote codes are A."
-            )
-
-            : fail(
-                this.id,
-                `Approval vote codes: ${votes.join(", ")}`
-            );
+        if (votes.length < 2) return fail(this.id, `Expected two approval votes; found ${votes.length}.`);
+        const rejected = votes.filter(vote => vote !== "A");
+        return rejected.length
+            ? fail(this.id, `Not all approval votes are approved. Vote codes: ${votes.join(", ")}.`)
+            : pass(this.id, `All ${votes.length} recorded approval votes are approved.`);
     }
 };
 

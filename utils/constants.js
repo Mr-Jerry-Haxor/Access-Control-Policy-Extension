@@ -17,24 +17,27 @@ export const CONFIG = {
 };
 
 export const URLS = {
-    PRIMARY_ACPS: 'https://cairois.web.boeing.com/api/asset/4/82/assessment/type/48',
+    PRIMARY_ACPS: 'https://cairois.web.boeing.com/node-api/assets/4/82/assessment/type/48',
     ACP_DETAIL:   'https://cairois.web.boeing.com/api/assessment/{id}/detail',
     ACP_ANSWERS:  'https://cairois.web.boeing.com/api/assessment/survey/{id}/answers',
-    ACP_QUESTIONS: 'https://cairois.web.boeing.com/api/survey/template/{id}/questions',
+    ACP_QUESTIONS: 'https://cairois.web.boeing.com/node-api/survey/template/{id}/questions',
     ACP_ASSET_SUMMARY: 'https://cairois.web.boeing.com/api/assessmentAssetSummaryVw?where=assetId:%3D:{assetId},assetTypeId:%3D:{assetTypeId},assessmentTypeId:%3D:{assessmentTypeId}',
-    ACP_REVIEW_SUMMARIES: 'https://cairois.web.boeing.com/api/asset/{assetTypeId}/{assetId}/assessment/review/summaries?assessmentTypeId={assessmentTypeId}&reviewTypeId=10',
+    ACP_REVIEW_SUMMARIES: 'https://cairois.web.boeing.com/node-api/assets/{assetTypeId}/{assetId}/assessment/review/summaries?assessmentTypeId={assessmentTypeId}&reviewTypeId=10',
     ACP_CONTACTS: 'https://cairois.web.boeing.com/api/assessment/{id}/contacts',
     ACP_ASSESSMENT_CONTACTS: 'https://cairois.web.boeing.com/api/assessmentContact?where=assessmentId:%3D:{id}',
-    ACP_ASSETS: 'https://cairois.web.boeing.com/api/assessment/{id}/assets?extra={extra}',
+    ACP_ASSETS: 'https://cairois.web.boeing.com/node-api/assessments/{id}/assets?extra={extra}',
     ACP_WORKFLOW_STEPS: 'https://cairois.web.boeing.com/api/assessment/{id}/workflowSteps',
     ACP_RECORD: 'https://cairois.web.boeing.com/api/assessment?where=assessmentId:%3D:{id}',
     ACP_SURVEY_TEMPLATE: 'https://cairois.web.boeing.com/api/surveyTemplate/{id}',
     ACP_QUESTION_GROUPS: 'https://cairois.web.boeing.com/api/surveyTemplateQuestionGroup?where=surveyTemplateId:%3D:{id}',
-    ACP_SURVEY_QUESTION: 'https://cairois.web.boeing.com/api/assessment/survey/{assessmentId}/question/{questionId}',
+    ACP_SURVEY_QUESTION: 'https://cairois.web.boeing.com/node-api/survey/collector/{assessmentId}/question/{questionId}',
     ESATS_ROLES: 'https://cairois.web.boeing.com/api/esatsBusappPersonRole01?where=esatsIdentifier:%3D:{assetId},cairoDeactivatedOn:is null ',
     ESATS_BUSAPP: 'https://cairois.web.boeing.com/api/esatsBusapp?where=baEsatsIdentifier:in:{assetId}&cairoDeactivatedOn:is null ',
+    GSEP_DATABASES: 'https://cairois.web.boeing.com/api/gsepDatabase?limit=4000&where=applicationEsatsId:%3D:{assetId}',
+    SIS_SERVER_IDS: 'https://cairois.web.boeing.com/api/sisServerBseId?where=applicationId:%3D:{assetId},cairoDeactivatedOn:is null ',
+    SIS_SERVERS: 'https://cairois.web.boeing.com/api/sisAllRecords?where=serverId:in:{serverIds}',
     IDENTITY: 'https://cairois.web.boeing.com/api/identity?where=identityId:in:{ids}',
-    CED_PUBLIC: 'https://cairois.web.boeing.com/api/cedPublic?where=bemsid:%3D:{bemsId}',
+    CED_PUBLIC: 'https://cairois.web.boeing.com/node-api/identity/ced?bemsId={bemsId}',
     ASSET_LABEL_SEARCH: 'https://cairois.web.boeing.com/api/asset/label/search'
 };
 
@@ -69,6 +72,14 @@ export const REVIEW_TABLE_CONFIGS = Object.freeze({
     'ACP-AR1': Object.freeze({
         outputField: 'suggestedTableRows',
         preserveAllRows: true
+    }),
+    'ACP-NPI1': Object.freeze({
+        outputField: 'suggestedTableRows',
+        preserveAllRows: true
+    }),
+    'ACP-EXPORT-1': Object.freeze({
+        outputField: 'suggestedTableRows',
+        preserveAllRows: true
     })
 });
 
@@ -83,9 +94,13 @@ export const REVIEW_QUESTION_FORMATS = Object.freeze({
 // Central allowlist for question-wise review. Match against every normalized
 // question alias so survey-template version changes do not require UI changes.
 export const REVIEW_QUESTION_IDS = Object.freeze([
+    'ACP-AA1',
     'ACP-AR1',
     'ACP-RAP1',
     'ACP-RAP2',
     'ACP-RAP3',
     'ACP-NPI1',
+    'ACP-EXPORT-1',
+    'ACP-EXPORT-NON-US',
+    'ACP-AI2',
 ]);

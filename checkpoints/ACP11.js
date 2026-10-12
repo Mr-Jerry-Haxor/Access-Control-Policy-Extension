@@ -1,52 +1,36 @@
-import { getAnswerText, skip } from "./utils.js";
+import { buildAiValidationPrompt, buildReviewPrompt, formatRoleRowsForAi, getAdditionalInformation, skip } from "./utils.js";
+
+const REQUIREMENT = "Every ACP-AR1 role has an Authorized Entity that defines an eligible group without circular role-name references or authentication-only criteria and does not conflict with Risk Profiler CSIR-PersonClass.";
 
 const ACP11 = {
     id: "ACP11",
-    name: "ACP11 Validation",
-    category: "General",
-
-    reviewPrompt: `Review this checkpoint against the supplied ACP context. Return JSON only using the ACP review contract: state, whatIsCorrect, whatIsWrong, whyItMatters, howToImprove, suggestedText, evidence, confidence, requiresHumanVerification, and questionsForApplicationTeam. Identify correct content as well as defects. For every applicable checkpoint, suggestedText is required and must be a complete ACP-ready proposed answer that retains verified facts, corrects defects, and uses [PLACEHOLDER] values for unknown facts. Do not invent facts; use NEEDS_VERIFICATION when authoritative evidence is unavailable.`,
+    name: "Authorized entities are definable and consistent",
+    category: "Access Roles",
     type: "AI",
+    reviewPrompt: buildReviewPrompt({
+        checkpointId: "ACP11",
+        requirement: REQUIREMENT,
+        targetQuestion: "ACP-AR1 Authorized Entity",
+        correction: "a concise, evidence-supported Authorized Entity replacement for each deficient row"
+    }),
     buildPrompt(context) {
-        const ans_ACP_AR1 = getAnswerText(context, "ACP-AR1");
-        if (!ans_ACP_AR1 || !ans_ACP_AR1.trim()) return null;
-
-        return `
-Validate ACP11.
-
-Requirement:
-"ACP-AR1:
-Checkpoint: Does the Authorized Entity statement (or other statements in the ACP, such as the description, processes, and additional information) not conflict with the Person Status or Person Type for the role? 
-Exception: If the conflict cannot be validated, answer 'N/A'.
-
-Note:
-• References to Compute 2.0, Enterprise Compute Program, Dell, TCS, HCL, Tech M, would all be considered to be Purchased Services.  (Included, but not limited to.)
-• The BLEAT! tool can be used to verify users' person types:  https://library.web.boeing.com/apps/bleat/"
-
-Answer context:
-ACP-AR1 Answer: ${ans_ACP_AR1}
-
-Return JSON only:
-{
-    "status": "PASS|FAIL|WARNING",
-    "reason": "..."
-}
-`;
+        const roles = formatRoleRowsForAi(context);
+        if (!roles.length) return null;
+        return buildAiValidationPrompt({
+            checkpointId: this.id,
+            requirement: REQUIREMENT,
+            decisionRules: "Evaluate every row. FAIL blank, circular definitions, authentication methods used as eligibility, IT&DA wording, or explicit conflict with Person Class labels. Team names are acceptable only when Additional Information documents them. Do not claim Insite alignment unless supplied evidence proves it; use REVIEW for that unavailable external comparison rather than inventing it.",
+            evidence: {
+                accessRoles: roles,
+                riskProfilerPersonClass: (context.supportingData?.assetLabels || []).filter(label => /person type|person class/i.test(label.labelType || "")).map(label => label.label),
+                additionalInformation: getAdditionalInformation(context),
+                esatsApplication: context.supportingData?.esatsBusapp || []
+            }
+        });
     },
     async validate(context) {
         const prompt = this.buildPrompt(context);
-        // Basic check if the prompt ended up with empty answers (assuming the prompt format puts the answer at the end)
-        // A better way: if prompt is null, skip. So we will just add a check:
-        if (!prompt) return skip(this.id, "Missing required data for AI prompt.");
-        
-        // Also check if the prompt's injected answers are empty.
-        // Usually it says "Answer: ${ans_...}". If it's just "Answer: " or "Answer: \n", it's missing.
-        // We will just do a generic check or modify buildPrompt.
-        return {
-            checkpointId: this.id,
-            type: "AI",
-            prompt
-        };
+        return prompt ? { checkpointId: this.id, type: "AI", prompt } : skip(this.id, "ACP-AR1 has no role rows.");
     }
 };
 

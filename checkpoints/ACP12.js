@@ -1,31 +1,45 @@
-import { getAnswerText, getRoleRows, pass, fail } from "./utils.js";
+import { buildReviewPrompt, fail, getRoleRows, needsReview, normalizeText, pass, roleLabel, rowValues, skip } from "./utils.js";
+
+function containsAny(text, terms) {
+    return terms.some(term => text.includes(term));
+}
 
 const ACP12 = {
     id: "ACP12",
-    name: "Access Levels Validation",
+    name: "Authorized entity agrees with person status and type",
     category: "Access Roles",
-
-    reviewPrompt: `Review this checkpoint against the supplied ACP context. Return JSON only using the ACP review contract: state, whatIsCorrect, whatIsWrong, whyItMatters, howToImprove, suggestedText, evidence, confidence, requiresHumanVerification, and questionsForApplicationTeam. Identify correct content as well as defects. For every applicable checkpoint, suggestedText is required and must be a complete ACP-ready proposed answer that retains verified facts, corrects defects, and uses [PLACEHOLDER] values for unknown facts. Do not invent facts; use NEEDS_VERIFICATION when authoritative evidence is unavailable.`,
     type: "RULE",
+    reviewPrompt: buildReviewPrompt({
+        checkpointId: "ACP12",
+        requirement: "Authorized Entity and other ACP statements do not conflict with each role's Person Status or Person Type.",
+        targetQuestion: "ACP-AR1 and related ACP text",
+        correction: "the exact conflicting fields and a minimally changed corrected value"
+    }),
     async validate(context) {
         const rows = getRoleRows(context);
-        if (rows.length > 0) {
-            const invalid = rows.filter(row => {
-                const levels = [row.accessToDB, row.accessToServer, row.accessToApplication]
-                    .flat()
-                    .filter(Boolean)
-                    .map(String);
-                return levels.length === 0 || levels.every(level => /^none$/i.test(level.trim()));
-            });
-
-            return invalid.length === 0
-                ? pass(this.id, `At least one access level is selected for ${rows.length} role row(s).`)
-                : fail(this.id, `All access levels are None or missing for role(s): ${invalid.map(row => row.role || row.rowGroupNumber).join(", ")}.`);
+        if (!rows.length) return needsReview(this.id, "ACP-AR1 role rows are unavailable.");
+        const conflicts = [];
+        let comparable = 0;
+        for (const row of rows) {
+            const entity = normalizeText(rowValues(row, "authorizedEntity").join(" "));
+            const statuses = normalizeText(rowValues(row, "personStatus").join(" "));
+            const types = normalizeText(rowValues(row, "personType").join(" "));
+            if (!entity || (!statuses && !types)) continue;
+            comparable++;
+            if (containsAny(entity, ["us persons only", "u s persons only"]) && /non us person/.test(statuses)) {
+                conflicts.push(`${roleLabel(row)}: Authorized Entity is U.S.-only but Person Status includes Non-US Person`);
+            }
+            if (/boeing employees? only/.test(entity) && containsAny(types, ["purchased services", "contract labor", "supplier", "non boeing"])) {
+                conflicts.push(`${roleLabel(row)}: Authorized Entity is Boeing-employees-only but Person Type includes non-Boeing personnel`);
+            }
+            if (containsAny(entity, ["compute 2 0", "enterprise compute program", "dell", "tcs", "hcl", "tech m"]) && !/purchased services/.test(types)) {
+                conflicts.push(`${roleLabel(row)}: Authorized Entity implies Purchased Services but Person Type does not`);
+            }
         }
-
-        const ar1 = getAnswerText(context, "ACP-AR1");
-        if (!ar1) return fail(this.id, "ACP-AR1 data is missing.");
-        return fail(this.id, "ACP-AR1 role table could not be parsed from CAIRO question detail.");
+        if (!comparable) return skip(this.id, "No row had both Authorized Entity and Person Status/Type values that could be compared.");
+        return conflicts.length
+            ? fail(this.id, conflicts.join("; "))
+            : pass(this.id, `No explicit Authorized Entity conflict was found in ${comparable} comparable role row(s).`);
     }
 };
 

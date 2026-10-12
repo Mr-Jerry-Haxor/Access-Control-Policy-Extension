@@ -1,50 +1,22 @@
-import { getAnswerText, skip } from "./utils.js";
+import { buildAiValidationPrompt, buildReviewPrompt, getAnswerText, skip } from "./utils.js";
+
+const REQUIREMENT = "The access removal process does not contain the access validation process; it may only mention that validation can trigger use of the removal process.";
 
 const ACP27 = {
-    id: "ACP27",
-    name: "ACP27 Validation",
-    category: "General",
-
-    reviewPrompt: `Review this checkpoint against the supplied ACP context. Return JSON only using the ACP review contract: state, whatIsCorrect, whatIsWrong, whyItMatters, howToImprove, suggestedText, evidence, confidence, requiresHumanVerification, and questionsForApplicationTeam. Identify correct content as well as defects. For every applicable checkpoint, suggestedText is required and must be a complete ACP-ready proposed answer that retains verified facts, corrects defects, and uses [PLACEHOLDER] values for unknown facts. Do not invent facts; use NEEDS_VERIFICATION when authoritative evidence is unavailable.`,
-    type: "AI",
+    id: "ACP27", name: "Removal process is separate from access validation", category: "Request, Modify, Removal", type: "AI",
+    reviewPrompt: buildReviewPrompt({
+        checkpointId: "ACP27", requirement: REQUIREMENT, targetQuestion: "ACP-RAP1 removal process",
+        correction: "a minimally changed removal subsection that retains deprovisioning steps and moves validation procedures out"
+    }),
     buildPrompt(context) {
-        // Gather answers from context
-        const ans_ACP_RAP2 = getAnswerText(context, "ACP-RAP2");
-        if (!ans_ACP_RAP2 || !ans_ACP_RAP2.trim()) return null;
-
-        return `
-Validate ACP27.
-
-Requirement:
-"ACP-RAP2: Describe your approval process
-Checkpoint: Does every role listed in Section ACP AR1 have a step-by-step process which can be performed by a person who is approving/processing access to the application?"
-	Describe the system/applications access validation process
-
-Answer context:
-ACP-RAP2 Answer: ${ans_ACP_RAP2}
-
-Return JSON only:
-{
-    "status": "PASS|FAIL|WARNING",
-    "reason": "..."
-}
-`;
+        const removal = getAnswerText(context, "ACP-RAP1");
+        if (!removal.trim()) return null;
+        return buildAiValidationPrompt({
+            checkpointId: this.id, requirement: REQUIREMENT,
+            decisionRules: "PASS when removal contains deprovisioning steps and at most a cross-reference to validation. FAIL when reconciliation, attestation, periodic review, AS-IS/SHOULD-BE comparison, or validation decision recording is embedded as part of removal.",
+            evidence: { requestModifyRemoval: removal, separateAccessValidation: getAnswerText(context, "ACP-RAP3") }
+        });
     },
-    async validate(context) {
-        const prompt = this.buildPrompt(context);
-        // Basic check if the prompt ended up with empty answers (assuming the prompt format puts the answer at the end)
-        // A better way: if prompt is null, skip. So we will just add a check:
-        if (!prompt) return skip(this.id, "Missing required data for AI prompt.");
-        
-        // Also check if the prompt's injected answers are empty.
-        // Usually it says "Answer: ${ans_...}". If it's just "Answer: " or "Answer: \n", it's missing.
-        // We will just do a generic check or modify buildPrompt.
-        return {
-            checkpointId: this.id,
-            type: "AI",
-            prompt
-        };
-    }
+    async validate(context) { const prompt = this.buildPrompt(context); return prompt ? { checkpointId: this.id, type: "AI", prompt } : skip(this.id, "ACP-RAP1 is missing."); }
 };
-
 export default ACP27;

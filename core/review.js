@@ -10,6 +10,7 @@ import {
 } from '../utils/constants.js';
 import { ACP_REVIEW_GUIDANCE } from '../knowledge/acpReviewGuidance.js';
 import { CHECKPOINT_EVIDENCE } from '../knowledge/checkpointEvidenceMap.js';
+import { formatRoleRowsForAi, getNpiRows, values } from '../checkpoints/helpers.js';
 
 const STATES = new Set(['CORRECT', 'PARTIAL', 'INCORRECT', 'MISSING', 'NOT_APPLICABLE', 'NEEDS_VERIFICATION']);
 
@@ -76,9 +77,17 @@ function summarizeReview(questions) {
 async function reviewQuestion(question, context, aiOptions) {
     const crossSection = {
         assessment: context.assessment,
-        roleQuestion: context.normalizedQuestionMap?.get('ACP-AR1') || null,
+        accessRoles: formatRoleRowsForAi(context),
+        nonPersonIdentifiers: getNpiRows(context).map(row => ({
+            rowGroupNumber: String(row.rowGroupNumber ?? ''),
+            nonPersonIdentifier: values(row.nonPersonIdentifier),
+            function: values(row.function),
+            nonPersonAccountOwner: values(row.nonPersonAccountOwner)
+        })),
         riskProfilerLabels: context.supportingData?.assetLabels || [],
-        esatsDescription: context.supportingData?.esatsBusapp || null
+        esatsDescription: context.supportingData?.esatsBusapp || null,
+        databases: context.supportingData?.gsepDatabases || [],
+        serverEnvironments: (context.supportingData?.sisServers || []).map(server => server.environment).filter(Boolean)
     };
     const relatedCheckpoints = await buildRelatedCheckpointContext(
         question,
@@ -105,11 +114,11 @@ async function buildRelatedCheckpointContext(question, context) {
     const related = getAllCheckpoints().filter(checkpoint => relatedIds.has(checkpoint.id));
 
     return Promise.all(related.map(async checkpoint => {
-        let criterion = null;
+        let criterion = checkpoint.reviewPrompt || null;
         let deterministicResult = null;
         let contextError = null;
         try {
-            if (typeof checkpoint.buildPrompt === 'function') {
+            if (!criterion && typeof checkpoint.buildPrompt === 'function') {
                 criterion = checkpoint.buildPrompt(context);
             }
             if (checkpoint.type !== 'AI' && typeof checkpoint.validate === 'function') {

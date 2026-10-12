@@ -1,52 +1,36 @@
-import { getAnswerText, skip } from "./utils.js";
+import { buildAiValidationPrompt, buildReviewPrompt, formatRoleRowsForAi, getAdditionalInformation, skip } from "./utils.js";
+
+const REQUIREMENT = "Each ACP-AR1 role has action-oriented responsibilities commensurate with its title; separately defined ESATS roles remain separate, and Data Solutions DBA wording is used when applicable.";
 
 const ACP8 = {
     id: "ACP8",
-    name: "ACP8 Validation",
-    category: "General",
-
-    reviewPrompt: `Review this checkpoint against the supplied ACP context. Return JSON only using the ACP review contract: state, whatIsCorrect, whatIsWrong, whyItMatters, howToImprove, suggestedText, evidence, confidence, requiresHumanVerification, and questionsForApplicationTeam. Identify correct content as well as defects. For every applicable checkpoint, suggestedText is required and must be a complete ACP-ready proposed answer that retains verified facts, corrects defects, and uses [PLACEHOLDER] values for unknown facts. Do not invent facts; use NEEDS_VERIFICATION when authoritative evidence is unavailable.`,
+    name: "Role responsibilities are complete and commensurate",
+    category: "Access Roles",
     type: "AI",
+    reviewPrompt: buildReviewPrompt({
+        checkpointId: "ACP8",
+        requirement: REQUIREMENT,
+        targetQuestion: "ACP-AR1",
+        correction: "a complete corrected Responsibility value for each deficient role row"
+    }),
     buildPrompt(context) {
-        // Gather answers from context
-        const ans_ACP_AR1 = getAnswerText(context, "ACP-AR1");
-        if (!ans_ACP_AR1 || !ans_ACP_AR1.trim()) return null;
-
-        return `
-Validate ACP8.
-
-Requirement:
-"ACP-AR1:
-Checkpoint: Does each access role listed in the ACP have responsibilities documented for the actions performed by the role?(The responsibilities must state work tasks performed.)
-Notes: 
-• Documented actions must be comensurate to the role title.
-• If people are separated by different roles in ESATS, they should be separate roles in the ACP(for example Developer and Tier 2/3 support.)
-• If there is any information in the Additional Information section of the ACP explaining the absence of responsibilities by the application team's request, answer “N/A""."
-
-Answer context:
-ACP-AR1 Answer: ${ans_ACP_AR1}
-
-Return JSON only:
-{
-    "status": "PASS|FAIL|WARNING",
-    "reason": "..."
-}
-`;
+        const roles = formatRoleRowsForAi(context);
+        if (!roles.length) return null;
+        return buildAiValidationPrompt({
+            checkpointId: this.id,
+            requirement: REQUIREMENT,
+            decisionRules: "Evaluate every row separately. A responsibility must state work actions, not merely access level or role title. Apply N/A only when Additional Information explicitly explains the omission at the application team's request. Do not invent Data Solutions wording.",
+            evidence: {
+                accessRoles: roles,
+                esatsRoleTypes: (context.supportingData?.esatsRoles || []).map(role => role.roleType || role.sourceContactType).filter(Boolean),
+                databases: context.supportingData?.gsepDatabases || [],
+                additionalInformation: getAdditionalInformation(context)
+            }
+        });
     },
     async validate(context) {
         const prompt = this.buildPrompt(context);
-        // Basic check if the prompt ended up with empty answers (assuming the prompt format puts the answer at the end)
-        // A better way: if prompt is null, skip. So we will just add a check:
-        if (!prompt) return skip(this.id, "Missing required data for AI prompt.");
-        
-        // Also check if the prompt's injected answers are empty.
-        // Usually it says "Answer: ${ans_...}". If it's just "Answer: " or "Answer: \n", it's missing.
-        // We will just do a generic check or modify buildPrompt.
-        return {
-            checkpointId: this.id,
-            type: "AI",
-            prompt
-        };
+        return prompt ? { checkpointId: this.id, type: "AI", prompt } : skip(this.id, "ACP-AR1 has no role rows.");
     }
 };
 

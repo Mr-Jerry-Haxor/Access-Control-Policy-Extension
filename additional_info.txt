@@ -1,0 +1,262 @@
+for ESATS  data use below kind URL 
+
+
+https://cairois.web.boeing.com/api/esatsBusapp?where=baEsatsIdentifier%3Ain%3A85444&cairoDeactivatedOn%3Ais%20null%20
+
+
+ACP15
+
+check requests like below and response  for data
+
+
+https://cairois.web.boeing.com/api/sisServerBseId?where=applicationId%3A%3D%3A85444%2CcairoDeactivatedOn%3Ais%20null%20
+
+https://cairois.web.boeing.com/api/sisAllRecords?where=serverId%3Ain%3A68105%7C68106%7C68107%7C136854%7C136856%7C136858%7C136859%7C256841%7C274613%7C274614%7C10025151%7C10025152%7C10025154%7C10090099%7C10122584
+
+
+ACP19
+
+
+check response like : https://cairois.web.boeing.com/node-api/identity/ced?bemsId=1164881
+if all owners ""status": "A"" then pass it. 
+
+
+URL to get All ACP survey templates: 
+GET :  https://cairois.web.boeing.com/api/surveyTemplate?where=alternateSurveyTemplateId%3A%3D%3AACP-app
+
+response: 
+[
+    {
+        "surveyTemplateId": 137000,
+        "alternateSurveyTemplateId": "ACP-APP",
+        "versionNumber": 33,
+        "assessmentTypeId": 48,
+        "shortDescription": "ACP - Application",
+        "longDescription": "Survey Template - 1291705",
+        "ownerIdentityId": "1559300",
+        "policyGroupId": 1,
+        "note": "<h4>Prerequisites before you start:</h4><ol><li>Ensure the Application Manager and the Business System Manager listed for this application is current in <a href=\"http://esats.web.boeing.com/\" target=\"_blank\">ESATS,</a> as both are required to approve the ACP. Contact the Application Steward to update ESATS. &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;</li><li style=\"text-align: left;\">Complete Risk Sorter Assessment. &nbsp;Answers from Risk Sorter are integrated into the ACP, specifically for Data types and Person Types.</li><li style=\"text-align: left;\">Ensure database information in <a href=\"http://dbis.web.boeing.com/\" target=\"_blank\">DBIS</a>. &nbsp;Contact the application&#39;s DBA to get the database information updated in DBIS.</li><li style=\"text-align: left;\">Ensure server information in <a href=\"http://gsep.web.boeing.com/\" rel=\"noopener noreferrer\" target=\"_blank\">GSEP</a>. &nbsp;Contact the application&#39;s server administrators to have server information updated in GSEP.</li><li style=\"text-align: left;\">Review the <a href=\"https://insite.web.boeing.com/culture/viewMedia.do?mediaId=62314\" target=\"_blank\">ACP Training Module</a></li></ol><p style=\"margin-left: 40px; line-height: 1;\"><small>Please note that intentionally providing false information or omitting pertinent information in Risk Sorter records is unethical and can lead to disciplinary action (see <a href=\"https://onepppm.web.boeing.com/onepppm/app/documents/show?refer=search&id=PRO-6419\" target=\"_blank\">PRO-6419</a>). &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;</small>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;&nbsp;</p><div class=\"top-buffer-10\"><h4>For assistance and guidance on the Global Trade and Export compliance: &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;</h4><div class=\"top-buffer-10\">Reference <a href=\"https://infosecnew.web.boeing.com/Search/ISFindIt.aspx?tId=1081\" target=\"_blank\">https://infosecnew.web.boeing.com/Search/ISFindIt.aspx?tId=1081</a>. In addition, reference section 4.3 Export Compliance Access Rules within ACP.<br>If you have questions, contact an IT Compliance Services Export Focal or GTC Trade Control Specialist assigned to IT for the determination of the ECV. &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;</div></div><p>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;&nbsp;</p>",
+        "releasedByIdentityId": "1559300",
+        "releasedOn": "2022-07-01T15:40:19.411+0000",
+        "scoringMethodologyCode": "G",
+        "deactivatedByIdentityId": "1559300",
+        "deactivatedOn": "2022-07-12T16:20:39.394+0000",
+        "createdBy": "CAIROIS",
+        "createdOn": "2022-07-01T14:18:40.862+0000",
+        "updatedBy": "1559300",
+        "updatedOn": "2022-07-12T16:20:39.408+0000",
+        "rowVersion": 2
+    },
+    {
+        "surveyTemplateId": 144001,
+        "alternateSurveyTemplateId": "ACP-APP",
+        "priorVersionSurveyTemplateId": 137000,
+        "versionNumber": 34,
+        "assessmentTypeId": 48,
+        "shortDescription": "ACP - Application",
+        "longDescription": "Survey Template - 1291705",
+        "ownerIdentityId": "1559300",
+        "policyGroupId": 1,
+        "note": "<h4>Prerequisites before you start:</h4><ol><li>Ensure the Application Manager and the Business System Manager listed for this application is current in <a href=\"http://esats.web.boeing.com/\" target=\"_blank\">ESATS,</a> as both are required to approve the ACP. Contact the Application Steward to update ESATS. &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;</li><li style=\"text-align: left;\">Complete Risk Sorter Assessment. &nbsp;Answers from Risk Sorter are integrated into the ACP, specifically for Data types and Person Types.</li><li style=\"text-align: left;\">Ensure database information in <a href=\"http://dbis.web.boeing.com/\" target=\"_blank\">DBIS</a>. &nbsp;Contact the application&#39;s DBA to get the database information updated in DBIS.</li><li style=\"text-align: left;\">Ensure server information in <a href=\"http://gsep.web.boeing.com/\" rel=\"noopener noreferrer\" target=\"_blank\">GSEP</a>. &nbsp;Contact the application&#39;s server administrators to have server information updated in GSEP.</li><li style=\"text-align: left;\">Review the <a href=\"https://insite.web.boeing.com/culture/viewMedia.do?mediaId=62314\" target=\"_blank\">ACP Training Module</a></li></ol><p style=\"margin-left: 40px; line-height: 1;\"><small>Please note that intentionally providing false information or omitting pertinent information in Risk Sorter records is unethical and can lead to disciplinary action (see <a href=\"https://onepppm.web.boeing.com/onepppm/app/documents/show?refer=search&id=PRO-6419\" target=\"_blank\">PRO-6419</a>). &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;</small>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;&nbsp;</p><div class=\"top-buffer-10\"><h4>For assistance and guidance on the Global Trade and Export compliance: &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;</h4><div class=\"top-buffer-10\">Reference <a href=\"https://infosecnew.web.boeing.com/Search/ISFindIt.aspx?tId=1081\" target=\"_blank\">https://infosecnew.web.boeing.com/Search/ISFindIt.aspx?tId=1081</a>. In addition, reference section 4.3 Export Compliance Access Rules within ACP.<br>If you have questions, contact an IT Compliance Services Export Focal or GTC Trade Control Specialist assigned to IT for the determination of the ECV. &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;</div></div><p>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;&nbsp;</p>",
+        "releasedByIdentityId": "1559300",
+        "releasedOn": "2022-07-12T16:20:39.394+0000",
+        "scoringMethodologyCode": "G",
+        "deactivatedByIdentityId": "1559300",
+        "deactivatedOn": "2023-12-04T14:21:03.446+0000",
+        "createdBy": "1559300",
+        "createdOn": "2022-07-12T16:20:06.101+0000",
+        "updatedBy": "1559300",
+        "updatedOn": "2023-12-04T14:21:03.468+0000",
+        "rowVersion": 2
+    },
+    {
+        "surveyTemplateId": 174408,
+        "alternateSurveyTemplateId": "ACP-APP",
+        "priorVersionSurveyTemplateId": 144001,
+        "versionNumber": 35,
+        "assessmentTypeId": 48,
+        "shortDescription": "ACP - Application",
+        "longDescription": "Survey Template - 1291705",
+        "ownerIdentityId": "1559300",
+        "policyGroupId": 1,
+        "note": "<h4>Prerequisites before you start:</h4><ol><li>Ensure the Application Manager and the Business System Manager listed for this application is current in <a href=\"http://esats.web.boeing.com/\" target=\"_blank\">ESATS,</a> as both are required to approve the ACP. Contact the Application Steward to update ESATS. &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;</li><li style=\"text-align: left;\">Complete Risk Sorter Assessment. &nbsp;Answers from Risk Sorter are integrated into the ACP, specifically for Data types and Person Types.</li><li style=\"text-align: left;\">Ensure database information in <a href=\"http://dbis.web.boeing.com/\" target=\"_blank\">DBIS</a>. &nbsp;Contact the application&#39;s DBA to get the database information updated in DBIS.</li><li style=\"text-align: left;\">Ensure server information in <a href=\"http://gsep.web.boeing.com/\" rel=\"noopener noreferrer\" target=\"_blank\">GSEP</a>. &nbsp;Contact the application&#39;s server administrators to have server information updated in GSEP.</li><li style=\"text-align: left;\">Review the <a href=\"https://insite.web.boeing.com/culture/viewMedia.do?mediaId=62314\" target=\"_blank\">ACP Training Module</a></li></ol><p style=\"margin-left: 40px; line-height: 1;\"><small>Please note that intentionally providing false information or omitting pertinent information in Risk Sorter records is unethical and can lead to disciplinary action (see <a href=\"https://onepppm.web.boeing.com/onepppm/app/documents/show?refer=search&id=PRO-6419\" target=\"_blank\">PRO-6419</a>). &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;</small>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;&nbsp;</p><div class=\"top-buffer-10\"><h4>For assistance and guidance on the Global Trade and Export compliance: &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;</h4><div class=\"top-buffer-10\">Reference <a href=\"https://infosecnew.web.boeing.com/Search/ISFindIt.aspx?tId=1081\" target=\"_blank\">https://infosecnew.web.boeing.com/Search/ISFindIt.aspx?tId=1081</a>. In addition, reference section 4.3 Export Compliance Access Rules within ACP.<br>If you have questions, contact an IT Compliance Services Export Focal or GTC Trade Control Specialist assigned to IT for the determination of the ECV. &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;</div></div><p>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;&nbsp;</p>",
+        "releasedByIdentityId": "1559300",
+        "releasedOn": "2023-12-04T14:21:03.446+0000",
+        "scoringMethodologyCode": "G",
+        "deactivatedByIdentityId": "1559300",
+        "deactivatedOn": "2024-02-29T12:34:36.881+0000",
+        "createdBy": "1975665",
+        "createdOn": "2022-11-14T16:13:10.817+0000",
+        "updatedBy": "1559300",
+        "updatedOn": "2024-02-29T12:34:36.933+0000",
+        "rowVersion": 2
+    },
+    {
+        "surveyTemplateId": 334501,
+        "alternateSurveyTemplateId": "ACP-APP",
+        "priorVersionSurveyTemplateId": 174408,
+        "versionNumber": 36,
+        "assessmentTypeId": 48,
+        "shortDescription": "ACP - Application",
+        "longDescription": "Survey Template - 1291705",
+        "ownerIdentityId": "1559300",
+        "policyGroupId": 1,
+        "note": "<h4>Prerequisites before you start:</h4><ol><li>Ensure the Application Manager and the Business System Manager listed for this application is current in <a href=\"http://esats.web.boeing.com/\" target=\"_blank\">ESATS,</a> as both are required to approve the ACP. Contact the Application Steward to update ESATS. &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;</li><li style=\"text-align: left;\">Complete Risk Sorter Assessment. &nbsp;Answers from Risk Sorter are integrated into the ACP, specifically for Data types and Person Types.</li><li style=\"text-align: left;\">Ensure database information in <a href=\"http://dbis.web.boeing.com/\" target=\"_blank\">DBIS</a>. &nbsp;Contact the application&#39;s DBA to get the database information updated in DBIS.</li><li style=\"text-align: left;\">Ensure server information in <a href=\"http://gsep.web.boeing.com/\" rel=\"noopener noreferrer\" target=\"_blank\">GSEP</a>. &nbsp;Contact the application&#39;s server administrators to have server information updated in GSEP.</li><li style=\"text-align: left;\">Review the <a href=\"https://insite.web.boeing.com/culture/viewMedia.do?mediaId=62314\" target=\"_blank\">ACP Training Module</a></li></ol><p style=\"margin-left: 40px; line-height: 1;\"><small>Please note that intentionally providing false information or omitting pertinent information in Risk Sorter records is unethical and can lead to disciplinary action (see <a href=\"https://onepppm.web.boeing.com/onepppm/app/documents/show?refer=search&id=PRO-6419\" target=\"_blank\">PRO-6419</a>). &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;</small>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;&nbsp;</p><div class=\"top-buffer-10\"><h4>For assistance and guidance on the Global Trade and Export compliance: &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;</h4><div class=\"top-buffer-10\">Reference <a href=\"https://infosecnew.web.boeing.com/Search/ISFindIt.aspx?tId=1081\" target=\"_blank\">https://infosecnew.web.boeing.com/Search/ISFindIt.aspx?tId=1081</a>. In addition, reference section 4.3 Export Compliance Access Rules within ACP.<br>If you have questions, contact an IT Compliance Services Export Focal or GTC Trade Control Specialist assigned to IT for the determination of the ECV. &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;</div></div><p>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;&nbsp;</p>",
+        "releasedByIdentityId": "1559300",
+        "releasedOn": "2024-02-29T12:34:36.881+0000",
+        "scoringMethodologyCode": "G",
+        "deactivatedByIdentityId": "1559300",
+        "deactivatedOn": "2024-03-07T13:26:07.506+0000",
+        "createdBy": "1559300",
+        "createdOn": "2024-02-29T12:33:57.714+0000",
+        "updatedBy": "1559300",
+        "updatedOn": "2024-03-07T13:26:07.540+0000",
+        "rowVersion": 2
+    },
+    {
+        "surveyTemplateId": 336502,
+        "alternateSurveyTemplateId": "ACP-APP",
+        "priorVersionSurveyTemplateId": 334501,
+        "versionNumber": 37,
+        "assessmentTypeId": 48,
+        "shortDescription": "ACP - Application",
+        "longDescription": "Survey Template - 1291705",
+        "ownerIdentityId": "1559300",
+        "policyGroupId": 1,
+        "note": "<h4>Prerequisites before you start:</h4><ol><li>Ensure the Application Manager and the Business System Manager listed for this application is current in <a href=\"http://esats.web.boeing.com/\" target=\"_blank\">ESATS,</a> as both are required to approve the ACP. Contact the Application Steward to update ESATS. &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;</li><li style=\"text-align: left;\">Complete Risk Sorter Assessment. &nbsp;Answers from Risk Sorter are integrated into the ACP, specifically for Data types and Person Types.</li><li style=\"text-align: left;\">Ensure database information in <a href=\"http://dbis.web.boeing.com/\" target=\"_blank\">DBIS</a>. &nbsp;Contact the application&#39;s DBA to get the database information updated in DBIS.</li><li style=\"text-align: left;\">Ensure server information in <a href=\"http://gsep.web.boeing.com/\" rel=\"noopener noreferrer\" target=\"_blank\">GSEP</a>. &nbsp;Contact the application&#39;s server administrators to have server information updated in GSEP.</li><li style=\"text-align: left;\">Review the <a href=\"https://insite.web.boeing.com/culture/viewMedia.do?mediaId=62314\" target=\"_blank\">ACP Training Module</a></li></ol><p style=\"margin-left: 40px; line-height: 1;\"><small>Please note that intentionally providing false information or omitting pertinent information in Risk Sorter records is unethical and can lead to disciplinary action (see <a href=\"https://onepppm.web.boeing.com/onepppm/app/documents/show?refer=search&id=PRO-6419\" target=\"_blank\">PRO-6419</a>). &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;</small>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;&nbsp;</p><div class=\"top-buffer-10\"><h4>For assistance and guidance on the Global Trade and Export compliance: &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;</h4><div class=\"top-buffer-10\">Reference <a href=\"https://infosecnew.web.boeing.com/Search/ISFindIt.aspx?tId=1081\" target=\"_blank\">https://infosecnew.web.boeing.com/Search/ISFindIt.aspx?tId=1081</a>. In addition, reference section 4.3 Export Compliance Access Rules within ACP.<br>If you have questions, contact an IT Compliance Services Export Focal or GTC Trade Control Specialist assigned to IT for the determination of the ECV. &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;</div></div><p>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;&nbsp;</p>",
+        "releasedByIdentityId": "1559300",
+        "releasedOn": "2024-03-07T13:26:07.506+0000",
+        "scoringMethodologyCode": "G",
+        "deactivatedByIdentityId": "1975665",
+        "deactivatedOn": "2026-05-16T15:39:04.586+0000",
+        "createdBy": "1559300",
+        "createdOn": "2024-03-07T13:25:25.620+0000",
+        "updatedBy": "1975665",
+        "updatedOn": "2026-05-16T15:39:04.604+0000",
+        "rowVersion": 2
+    },
+    {
+        "surveyTemplateId": 412901,
+        "alternateSurveyTemplateId": "ACP-APP",
+        "priorVersionSurveyTemplateId": 336502,
+        "versionNumber": 38,
+        "assessmentTypeId": 48,
+        "shortDescription": "ACP - Application",
+        "longDescription": "Survey Template - 1291705",
+        "ownerIdentityId": "1559300",
+        "policyGroupId": 1,
+        "note": "<h4>Prerequisites before you start:</h4><ol><li>Ensure the Application Manager and the Business System Manager listed for this application is current in <a href=\"http://esats.web.boeing.com/\" target=\"_blank\">ESATS,</a> as both are required to approve the ACP. Contact the Application Steward to update ESATS. &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;</li><li style=\"text-align: left;\">Complete Risk Sorter Assessment. &nbsp;Answers from Risk Sorter are integrated into the ACP, specifically for Data types and Person Types.</li><li style=\"text-align: left;\">Ensure database information in <a href=\"http://dbis.web.boeing.com/\" target=\"_blank\">DBIS</a>. &nbsp;Contact the application&#39;s DBA to get the database information updated in DBIS.</li><li style=\"text-align: left;\">Ensure server information in <a href=\"http://gsep.web.boeing.com/\" rel=\"noopener noreferrer\" target=\"_blank\">GSEP</a>. &nbsp;Contact the application&#39;s server administrators to have server information updated in GSEP.</li><li style=\"text-align: left;\">Review the <a href=\"https://insite.web.boeing.com/culture/viewMedia.do?mediaId=62314\" target=\"_blank\">ACP Training Module</a></li></ol><p style=\"margin-left: 40px; line-height: 1;\"><small>Please note that intentionally providing false information or omitting pertinent information in Risk Sorter records is unethical and can lead to disciplinary action (see <a href=\"https://onepppm.web.boeing.com/onepppm/app/documents/show?refer=search&id=PRO-6419\" target=\"_blank\">PRO-6419</a>). &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;</small>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;&nbsp;</p><div class=\"top-buffer-10\"><h4>For assistance and guidance on the Global Trade and Export compliance: &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;</h4><div class=\"top-buffer-10\">Reference <a href=\"https://infosecnew.web.boeing.com/Search/ISFindIt.aspx?tId=1081\" target=\"_blank\">https://infosecnew.web.boeing.com/Search/ISFindIt.aspx?tId=1081</a>. In addition, reference section 4.3 Export Compliance Access Rules within ACP.<br>If you have questions, contact an IT Compliance Services Export Focal or GTC Trade Control Specialist assigned to IT for the determination of the ECV. &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;</div></div><p>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;&nbsp;</p>",
+        "scoringMethodologyCode": "G",
+        "deactivatedByIdentityId": "1975665",
+        "deactivatedOn": "2025-05-07T17:58:58.999+0000",
+        "createdBy": "1975665",
+        "createdOn": "2025-05-07T17:46:01.528+0000",
+        "updatedBy": "1975665",
+        "updatedOn": "2025-05-07T17:58:59.095+0000",
+        "rowVersion": 1
+    },
+    {
+        "surveyTemplateId": 488801,
+        "alternateSurveyTemplateId": "ACP-APP",
+        "priorVersionSurveyTemplateId": 336502,
+        "versionNumber": 39,
+        "assessmentTypeId": 48,
+        "shortDescription": "ACP - Application",
+        "longDescription": "Survey Template - 1291705",
+        "ownerIdentityId": "1559300",
+        "policyGroupId": 1,
+        "note": "<h4>Prerequisites before you start:</h4><ol><li>Ensure the Application Manager and the Business System Manager listed for this application is current in <a href=\"http://esats.web.boeing.com/\" target=\"_blank\">ESATS,</a> as both are required to approve the ACP. Contact the Application Steward to update ESATS. &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;</li><li style=\"text-align: left;\">Complete Risk Sorter Assessment. &nbsp;Answers from Risk Sorter are integrated into the ACP, specifically for Data types and Person Types.</li><li style=\"text-align: left;\">Ensure database information in <a href=\"http://dbis.web.boeing.com/\" target=\"_blank\">DBIS</a>. &nbsp;Contact the application&#39;s DBA to get the database information updated in DBIS.</li><li style=\"text-align: left;\">Ensure server information in <a href=\"http://gsep.web.boeing.com/\" rel=\"noopener noreferrer\" target=\"_blank\">GSEP</a>. &nbsp;Contact the application&#39;s server administrators to have server information updated in GSEP.</li><li style=\"text-align: left;\">Review the <a href=\"https://insite.web.boeing.com/culture/viewMedia.do?mediaId=62314\" target=\"_blank\">ACP Training Module</a></li></ol><p style=\"margin-left: 40px; line-height: 1;\"><small>Please note that intentionally providing false information or omitting pertinent information in Risk Sorter records is unethical and can lead to disciplinary action (see <a href=\"https://onepppm.web.boeing.com/onepppm/app/documents/show?refer=search&id=PRO-6419\" target=\"_blank\">PRO-6419</a>). &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;</small>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;&nbsp;</p><div class=\"top-buffer-10\"><h4>For assistance and guidance on the Global Trade and Export compliance: &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;</h4><div class=\"top-buffer-10\">Reference <a href=\"https://infosecnew.web.boeing.com/Search/ISFindIt.aspx?tId=1081\" target=\"_blank\">https://infosecnew.web.boeing.com/Search/ISFindIt.aspx?tId=1081</a>. In addition, reference section 4.3 Export Compliance Access Rules within ACP.<br>If you have questions, contact an IT Compliance Services Export Focal or GTC Trade Control Specialist assigned to IT for the determination of the ECV. &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;</div></div><p>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;&nbsp;</p>",
+        "scoringMethodologyCode": "G",
+        "deactivatedByIdentityId": "1975665",
+        "deactivatedOn": "2025-12-16T00:04:44.387+0000",
+        "createdBy": "1975665",
+        "createdOn": "2025-12-16T00:02:49.074+0000",
+        "updatedBy": "1975665",
+        "updatedOn": "2025-12-16T00:04:44.497+0000",
+        "rowVersion": 1
+    },
+    {
+        "surveyTemplateId": 548904,
+        "alternateSurveyTemplateId": "ACP-APP",
+        "priorVersionSurveyTemplateId": 336502,
+        "versionNumber": 40,
+        "assessmentTypeId": 48,
+        "shortDescription": "ACP - Application",
+        "longDescription": "Survey Template - 1291705",
+        "ownerIdentityId": "1559300",
+        "policyGroupId": 1,
+        "note": "<h4>Prerequisites before you start:</h4><ol><li>Ensure the Application Manager and the Business System Manager listed for this application is current in <a href=\"http://esats.web.boeing.com/\" target=\"_blank\">ESATS,</a> as both are required to approve the ACP. Contact the Application Steward to update ESATS. &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;</li><li style=\"text-align: left;\">Complete Risk Sorter Assessment. &nbsp;Answers from Risk Sorter are integrated into the ACP, specifically for Data types and Person Types.</li><li style=\"text-align: left;\">Ensure database information in <a href=\"http://dbis.web.boeing.com/\" target=\"_blank\">DBIS</a>. &nbsp;Contact the application&#39;s DBA to get the database information updated in DBIS.</li><li style=\"text-align: left;\">Ensure server information in <a href=\"http://gsep.web.boeing.com/\" rel=\"noopener noreferrer\" target=\"_blank\">GSEP</a>. &nbsp;Contact the application&#39;s server administrators to have server information updated in GSEP.</li><li style=\"text-align: left;\">Review the <a href=\"https://insite.web.boeing.com/culture/viewMedia.do?mediaId=62314\" target=\"_blank\">ACP Training Module</a></li></ol><p style=\"margin-left: 40px; line-height: 1;\"><small>Please note that intentionally providing false information or omitting pertinent information in Risk Sorter records is unethical and can lead to disciplinary action (see <a href=\"https://onepppm.web.boeing.com/onepppm/app/documents/show?refer=search&id=PRO-6419\" target=\"_blank\">PRO-6419</a>). &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;</small>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;&nbsp;</p><div class=\"top-buffer-10\"><h4>For assistance and guidance on the Global Trade and Export compliance: &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;</h4><div class=\"top-buffer-10\">Reference <a href=\"https://infosecnew.web.boeing.com/Search/ISFindIt.aspx?tId=1081\" target=\"_blank\">https://infosecnew.web.boeing.com/Search/ISFindIt.aspx?tId=1081</a>. In addition, reference section 4.3 Export Compliance Access Rules within ACP.<br>If you have questions, contact an IT Compliance Services Export Focal or GTC Trade Control Specialist assigned to IT for the determination of the ECV. &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;</div></div><p>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;&nbsp;</p>",
+        "scoringMethodologyCode": "G",
+        "deactivatedByIdentityId": "1975665",
+        "deactivatedOn": "2026-05-07T14:49:55.969+0000",
+        "createdBy": "1975665",
+        "createdOn": "2026-04-21T15:02:02.205+0000",
+        "updatedBy": "1975665",
+        "updatedOn": "2026-05-07T14:49:56.085+0000",
+        "rowVersion": 1
+    },
+    {
+        "surveyTemplateId": 554902,
+        "alternateSurveyTemplateId": "ACP-APP",
+        "priorVersionSurveyTemplateId": 336502,
+        "versionNumber": 41,
+        "assessmentTypeId": 48,
+        "shortDescription": "ACP - Application",
+        "longDescription": "Survey Template - 1291705",
+        "ownerIdentityId": "1559300",
+        "policyGroupId": 1,
+        "note": "<h4>Prerequisites before you start:</h4><ol><li>Ensure the Application Manager and the Business System Manager listed for this application is current in <a href=\"http://esats.web.boeing.com/\" target=\"_blank\">ESATS,</a> as both are required to approve the ACP. Contact the Application Steward to update ESATS. &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;</li><li style=\"text-align: left;\">Complete Risk Sorter Assessment. &nbsp;Answers from Risk Sorter are integrated into the ACP, specifically for Data types and Person Types.</li><li style=\"text-align: left;\">Ensure database information in <a href=\"http://dbis.web.boeing.com/\" target=\"_blank\">DBIS</a>. &nbsp;Contact the application&#39;s DBA to get the database information updated in DBIS.</li><li style=\"text-align: left;\">Ensure server information in <a href=\"http://gsep.web.boeing.com/\" rel=\"noopener noreferrer\" target=\"_blank\">GSEP</a>. &nbsp;Contact the application&#39;s server administrators to have server information updated in GSEP.</li><li style=\"text-align: left;\">Review the <a href=\"https://insite.web.boeing.com/culture/viewMedia.do?mediaId=62314\" target=\"_blank\">ACP Training Module</a></li></ol><p style=\"margin-left: 40px; line-height: 1;\"><small>Please note that intentionally providing false information or omitting pertinent information in Risk Sorter records is unethical and can lead to disciplinary action (see <a href=\"https://onepppm.web.boeing.com/onepppm/app/documents/show?refer=search&id=PRO-6419\" target=\"_blank\">PRO-6419</a>). &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;</small>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;&nbsp;</p><div class=\"top-buffer-10\"><h4>For assistance and guidance on the Global Trade and Export compliance: &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;</h4><div class=\"top-buffer-10\">Reference <a href=\"https://infosecnew.web.boeing.com/Search/ISFindIt.aspx?tId=1081\" target=\"_blank\">https://infosecnew.web.boeing.com/Search/ISFindIt.aspx?tId=1081</a>. In addition, reference section 4.3 Export Compliance Access Rules within ACP.<br>If you have questions, contact an IT Compliance Services Export Focal or GTC Trade Control Specialist assigned to IT for the determination of the ECV. &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;</div></div><p>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;&nbsp;</p>",
+        "releasedByIdentityId": "1975665",
+        "releasedOn": "2026-05-16T15:39:04.586+0000",
+        "scoringMethodologyCode": "G",
+        "deactivatedByIdentityId": "1975665",
+        "deactivatedOn": "2026-05-16T15:41:04.703+0000",
+        "createdBy": "1975665",
+        "createdOn": "2026-05-16T15:39:03.963+0000",
+        "updatedBy": "1975665",
+        "updatedOn": "2026-05-16T15:41:04.716+0000",
+        "rowVersion": 2
+    },
+    {
+        "surveyTemplateId": 554903,
+        "alternateSurveyTemplateId": "ACP-APP",
+        "priorVersionSurveyTemplateId": 554902,
+        "versionNumber": 42,
+        "assessmentTypeId": 48,
+        "shortDescription": "ACP - Application",
+        "longDescription": "Survey Template - 1291705",
+        "ownerIdentityId": "1559300",
+        "policyGroupId": 1,
+        "note": "<h4>Prerequisites before you start:</h4><ol><li>Ensure the Application Manager and the Business System Manager listed for this application is current in <a href=\"http://esats.web.boeing.com/\" target=\"_blank\">ESATS,</a> as both are required to approve the ACP. Contact the Application Steward to update ESATS. &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;</li><li style=\"text-align: left;\">Complete Risk Sorter Assessment. &nbsp;Answers from Risk Sorter are integrated into the ACP, specifically for Data types and Person Types.</li><li style=\"text-align: left;\">Ensure database information in <a href=\"http://dbis.web.boeing.com/\" target=\"_blank\">DBIS</a>. &nbsp;Contact the application&#39;s DBA to get the database information updated in DBIS.</li><li style=\"text-align: left;\">Ensure server information in <a href=\"http://gsep.web.boeing.com/\" rel=\"noopener noreferrer\" target=\"_blank\">GSEP</a>. &nbsp;Contact the application&#39;s server administrators to have server information updated in GSEP.</li><li style=\"text-align: left;\">Review the <a href=\"https://insite.web.boeing.com/culture/viewMedia.do?mediaId=62314\" target=\"_blank\">ACP Training Module</a></li></ol><p style=\"margin-left: 40px; line-height: 1;\"><small>Please note that intentionally providing false information or omitting pertinent information in Risk Sorter records is unethical and can lead to disciplinary action (see <a href=\"https://onepppm.web.boeing.com/onepppm/app/documents/show?refer=search&id=PRO-6419\" target=\"_blank\">PRO-6419</a>). &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;</small>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;&nbsp;</p><div class=\"top-buffer-10\"><h4>For assistance and guidance on the Global Trade and Export compliance: &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;</h4><div class=\"top-buffer-10\">Reference <a href=\"https://infosecnew.web.boeing.com/Search/ISFindIt.aspx?tId=1081\" target=\"_blank\">https://infosecnew.web.boeing.com/Search/ISFindIt.aspx?tId=1081</a>. In addition, reference section 4.3 Export Compliance Access Rules within ACP.<br>If you have questions, contact an IT Compliance Services Export Focal or GTC Trade Control Specialist assigned to IT for the determination of the ECV. &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;</div></div><p>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;&nbsp;</p>",
+        "releasedByIdentityId": "1975665",
+        "releasedOn": "2026-05-16T15:41:04.703+0000",
+        "scoringMethodologyCode": "G",
+        "deactivatedByIdentityId": "1975665",
+        "deactivatedOn": "2026-05-16T16:29:46.285+0000",
+        "createdBy": "1975665",
+        "createdOn": "2026-05-16T15:41:04.180+0000",
+        "updatedBy": "1975665",
+        "updatedOn": "2026-05-16T16:29:46.314+0000",
+        "rowVersion": 2
+    },
+    {
+        "surveyTemplateId": 554907,
+        "alternateSurveyTemplateId": "ACP-APP",
+        "priorVersionSurveyTemplateId": 554903,
+        "versionNumber": 43,
+        "assessmentTypeId": 48,
+        "shortDescription": "ACP - Application",
+        "longDescription": "Survey Template - 1291705",
+        "ownerIdentityId": "1559300",
+        "policyGroupId": 1,
+        "note": "<h4>Prerequisites before you start:</h4><ol><li>Ensure the Application Manager and the Business System Manager listed for this application is current in <a href=\"http://esats.web.boeing.com/\" target=\"_blank\">ESATS,</a> as both are required to approve the ACP. Contact the Application Steward to update ESATS. &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;</li><li style=\"text-align: left;\">Complete Risk Sorter Assessment. &nbsp;Answers from Risk Sorter are integrated into the ACP, specifically for Data types and Person Types.</li><li style=\"text-align: left;\">Ensure database information in <a href=\"http://dbis.web.boeing.com/\" target=\"_blank\">DBIS</a>. &nbsp;Contact the application&#39;s DBA to get the database information updated in DBIS.</li><li style=\"text-align: left;\">Ensure server information in <a href=\"http://gsep.web.boeing.com/\" rel=\"noopener noreferrer\" target=\"_blank\">GSEP</a>. &nbsp;Contact the application&#39;s server administrators to have server information updated in GSEP.</li><li style=\"text-align: left;\">Review the <a href=\"https://insite.web.boeing.com/culture/viewMedia.do?mediaId=62314\" target=\"_blank\">ACP Training Module</a></li></ol><p style=\"margin-left: 40px; line-height: 1;\"><small>Please note that intentionally providing false information or omitting pertinent information in Risk Sorter records is unethical and can lead to disciplinary action (see <a href=\"https://onepppm.web.boeing.com/onepppm/app/documents/show?refer=search&id=PRO-6419\" target=\"_blank\">PRO-6419</a>). &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;</small>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;&nbsp;</p><div class=\"top-buffer-10\"><h4>For assistance and guidance on the Global Trade and Export compliance: &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;</h4><div class=\"top-buffer-10\">Reference <a href=\"https://infosecnew.web.boeing.com/Search/ISFindIt.aspx?tId=1081\" target=\"_blank\">https://infosecnew.web.boeing.com/Search/ISFindIt.aspx?tId=1081</a>. In addition, reference section 4.3 Export Compliance Access Rules within ACP.<br>If you have questions, contact an IT Compliance Services Export Focal or GTC Trade Control Specialist assigned to IT for the determination of the ECV. &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;</div></div><p>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;&nbsp;</p>",
+        "releasedByIdentityId": "1975665",
+        "releasedOn": "2026-05-16T16:29:46.285+0000",
+        "scoringMethodologyCode": "G",
+        "createdBy": "1975665",
+        "createdOn": "2026-05-16T16:26:46.794+0000",
+        "updatedBy": "1975665",
+        "updatedOn": "2026-05-16T16:29:46.488+0000",
+        "rowVersion": 1
+    }
+]

@@ -1,28 +1,32 @@
-import { fail, needsReview, pass } from "./utils.js";
+import { buildReviewPrompt, evidenceUnavailable, fail, getAnswerText, needsReview, pass, skip } from "./utils.js";
 
 const ACP17 = {
     id: "ACP17",
-    name: "Account Owner Active Status",
+    name: "Internal web or database application has an NPI",
     category: "Non-Person Identifiers",
-
-    reviewPrompt: `Review this checkpoint against the supplied ACP context. Return JSON only using the ACP review contract: state, whatIsCorrect, whatIsWrong, whyItMatters, howToImprove, suggestedText, evidence, confidence, requiresHumanVerification, and questionsForApplicationTeam. Identify correct content as well as defects. For every applicable checkpoint, suggestedText is required and must be a complete ACP-ready proposed answer that retains verified facts, corrects defects, and uses [PLACEHOLDER] values for unknown facts. Do not invent facts; use NEEDS_VERIFICATION when authoritative evidence is unavailable.`,
     type: "RULE",
+    reviewPrompt: buildReviewPrompt({
+        checkpointId: "ACP17",
+        requirement: "An internal web application or an application with a database lists at least one NPI in ACP-NPI1.",
+        targetQuestion: "ACP-NPI1",
+        correction: "the required NPI table row fields, or the evidenced N/A rationale"
+    }),
     async validate(context) {
-        const rows = context.supportingData?.questionTables?.['ACP-NPI1']?.rows || [];
-        const ownerIds = [...new Set(rows.flatMap(row => Object.entries(row)
-            .filter(([key]) => /owner|bems/i.test(key))
-            .flatMap(([, value]) => Array.isArray(value) ? value : [value])
-            .map(String)
-            .filter(value => /^\d{3,}$/.test(value))))];
-        if (!ownerIds.length) return needsReview(this.id, "No NPI owner BEMS IDs were available for authoritative status verification.");
-
-        const records = ownerIds.map(id => ({ id, record: (context.supportingData?.cedPublic?.[id] || [])[0] }));
-        const missing = records.filter(item => !item.record);
-        if (missing.length) return needsReview(this.id, `CED evidence was unavailable for NPI owner(s): ${missing.map(item => item.id).join(', ')}.`);
-        const inactive = records.filter(item => String(item.record.status).toUpperCase() !== 'A');
-        return inactive.length
-            ? fail(this.id, `Inactive NPI owner(s): ${inactive.map(item => item.id).join(', ')}.`)
-            : pass(this.id, `All ${records.length} NPI owner(s) have active CED status.`);
+        const databases = context.supportingData?.gsepDatabases;
+        const busapps = context.supportingData?.esatsBusapp;
+        if (evidenceUnavailable(databases) && evidenceUnavailable(busapps)) {
+            return needsReview(this.id, "Database and ESATS application-type evidence are unavailable.");
+        }
+        const hasDatabase = Array.isArray(databases) && databases.length > 0;
+        const appText = JSON.stringify(Array.isArray(busapps) ? busapps : []);
+        const internalWeb = /\b(web based|web application|internal web|intranet)\b/i.test(appText);
+        if (!hasDatabase && !internalWeb) return skip(this.id, "Available evidence does not identify an internal web application or database.");
+        const answer = getAnswerText(context, "ACP-NPI1").trim();
+        const rows = context.supportingData?.questionTables?.["ACP-NPI1"]?.rows || [];
+        if (!/^yes$/i.test(answer)) return fail(this.id, "The application is internal-web/database-backed, but ACP-NPI1 is not Yes.");
+        return rows.length
+            ? pass(this.id, `ACP-NPI1 is Yes and lists ${rows.length} NPI row(s).`)
+            : fail(this.id, "ACP-NPI1 is Yes, but no NPI rows are listed.");
     }
 };
 

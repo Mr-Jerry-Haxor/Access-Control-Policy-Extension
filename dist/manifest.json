@@ -1,0 +1,40 @@
+{
+  "manifest_version": 3,
+  "name": "ACP Validator Automation",
+  "description": "AI-powered Access Control Policy validation Plugin for CAIRO assessments.",
+  "version": "1.0.0",
+  "minimum_chrome_version": "114",
+
+  "permissions": [
+    "storage",
+    "unlimitedStorage",
+    "tabs",
+    "scripting",
+    "activeTab",
+    "cookies",
+    "sidePanel"
+  ],
+
+  "host_permissions": [
+    "*://cairois.web.boeing.com/*",
+    "*://boeingai.web.boeing.com/*"
+  ],
+
+  "background": {
+    "service_worker": "service_worker.js",
+    "type": "module"
+  },
+
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_title": "ACP Validator Automation"
+  },
+
+  "side_panel": {
+    "default_path": "popup/sidepanel.html"
+  },
+
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'"
+  }
+}

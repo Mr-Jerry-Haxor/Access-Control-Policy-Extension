@@ -1,48 +1,35 @@
-import { getAnswerText, skip } from "./utils.js";
+import { buildAiValidationPrompt, buildReviewPrompt, formatRoleRowsForAi, getAnswerText, skip } from "./utils.js";
+
+const REQUIREMENT = "Every ACP-AR1 role must be named and have a process defined in the Request, Approval, and Removal portions of the ACP.";
 
 const ACP3 = {
     id: "ACP3",
-    name: "ACP3 Validation",
-    category: "General",
-
-    reviewPrompt: `Review this checkpoint against the supplied ACP context. Return JSON only using the ACP review contract: state, whatIsCorrect, whatIsWrong, whyItMatters, howToImprove, suggestedText, evidence, confidence, requiresHumanVerification, and questionsForApplicationTeam. Identify correct content as well as defects. For every applicable checkpoint, suggestedText is required and must be a complete ACP-ready proposed answer that retains verified facts, corrects defects, and uses [PLACEHOLDER] values for unknown facts. Do not invent facts; use NEEDS_VERIFICATION when authoritative evidence is unavailable.`,
+    name: "Role coverage in request, approval, and removal",
+    category: "Access Roles",
     type: "AI",
+    reviewPrompt: buildReviewPrompt({
+        checkpointId: "ACP3",
+        requirement: REQUIREMENT,
+        targetQuestion: "ACP-AR1, ACP-RAP1, and ACP-RAP2",
+        correction: "precise missing process steps grouped by exact role name"
+    }),
     buildPrompt(context) {
-        // Gather answers from context
-        const ans_ACP_AR1 = getAnswerText(context, "ACP-AR1");
-        if (!ans_ACP_AR1 || !ans_ACP_AR1.trim()) return null;
-
-        return `
-Validate ACP3.
-
-Requirement:
-"ACP-AR1:
-Checkpoint: Do the documented roles match the roles listed in the ""Request/Approval/Removal"" section of the ACP?"
-
-Answer context:
-ACP-AR1 Answer: ${ans_ACP_AR1}
-
-Return JSON only:
-{
-    "status": "PASS|FAIL|WARNING",
-    "reason": "..."
-}
-`;
+        const roles = formatRoleRowsForAi(context);
+        if (!roles.length) return null;
+        return buildAiValidationPrompt({
+            checkpointId: this.id,
+            requirement: REQUIREMENT,
+            decisionRules: "PASS only if every exact role is covered by request, approval, and removal/deactivation. FAIL when at least one role or one required process is demonstrably missing. Do not require literal repetition when an evidenced phrase unambiguously covers a defined group of roles.",
+            evidence: {
+                accessRoles: roles,
+                requestModifyRemoval: getAnswerText(context, "ACP-RAP1"),
+                approval: getAnswerText(context, "ACP-RAP2")
+            }
+        });
     },
     async validate(context) {
         const prompt = this.buildPrompt(context);
-        // Basic check if the prompt ended up with empty answers (assuming the prompt format puts the answer at the end)
-        // A better way: if prompt is null, skip. So we will just add a check:
-        if (!prompt) return skip(this.id, "Missing required data for AI prompt.");
-        
-        // Also check if the prompt's injected answers are empty.
-        // Usually it says "Answer: ${ans_...}". If it's just "Answer: " or "Answer: \n", it's missing.
-        // We will just do a generic check or modify buildPrompt.
-        return {
-            checkpointId: this.id,
-            type: "AI",
-            prompt
-        };
+        return prompt ? { checkpointId: this.id, type: "AI", prompt } : skip(this.id, "ACP-AR1 has no role rows.");
     }
 };
 

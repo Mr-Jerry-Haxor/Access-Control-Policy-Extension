@@ -1,17 +1,50 @@
-import { getDatabaseApproverRows, needsReview } from "./utils.js";
+import { buildReviewPrompt, evidenceUnavailable, fail, getCedRecord, getRoleRows, needsReview, normalizeText, pass, rowValues, skip } from "./utils.js";
+
+function collectDbaIds(databases) {
+    const ids = new Set();
+    const visit = value => {
+        if (Array.isArray(value)) return value.forEach(visit);
+        if (value && typeof value === "object") return Object.values(value).forEach(visit);
+        if (/^\d{3,}$/.test(String(value || "").trim())) ids.add(String(value).trim());
+    };
+    visit(databases.map(database => database.contactBemsIds));
+    return [...ids];
+}
+
+function personType(record) {
+    const text = normalizeText([record?.type, record?.relationships, record?.company].filter(Boolean).join(" "));
+    if (/purchased services/.test(text)) return "Purchased Services";
+    if (/non boeing|contract labor/.test(text)) return "Non-Boeing";
+    if (/employee|boeing benefits|\bbps\b|the boeing company/.test(text)) return "Boeing Employee";
+    return "";
+}
 
 const ACP6 = {
     id: "ACP6",
-    name: "DBA Person Type Match via CMDB",
+    name: "DBA person type matches CMDB DBA",
     category: "Access Roles",
-
-    reviewPrompt: `Review this checkpoint against the supplied ACP context. Return JSON only using the ACP review contract: state, whatIsCorrect, whatIsWrong, whyItMatters, howToImprove, suggestedText, evidence, confidence, requiresHumanVerification, and questionsForApplicationTeam. Identify correct content as well as defects. For every applicable checkpoint, suggestedText is required and must be a complete ACP-ready proposed answer that retains verified facts, corrects defects, and uses [PLACEHOLDER] values for unknown facts. Do not invent facts; use NEEDS_VERIFICATION when authoritative evidence is unavailable.`,
     type: "RULE",
+    reviewPrompt: buildReviewPrompt({
+        checkpointId: "ACP6",
+        requirement: "The DBA role Person Type matches at least one DBA associated with the application in CMDB/GSEP.",
+        targetQuestion: "ACP-AR1",
+        correction: "the evidenced DBA Person Type correction without exposing unnecessary identity details"
+    }),
     async validate(context) {
-        if (getDatabaseApproverRows(context).length === 0) {
-            return needsReview(this.id, "No authoritative CMDB DBA inventory or ACP-RAP4 database approver evidence was found.");
-        }
-        return needsReview(this.id, "CAIRO exposed database approver identities, but authoritative CMDB DBA person-type evidence is unavailable.");
+        const databases = context.supportingData?.gsepDatabases;
+        if (evidenceUnavailable(databases)) return needsReview(this.id, "The CMDB/GSEP database response is unavailable.");
+        if (!Array.isArray(databases) || !databases.length) return skip(this.id, "CMDB/GSEP lists no databases for the application.");
+        const dbaRows = getRoleRows(context).filter(row => /\bDBA\b|database administrator/i.test(rowValues(row, "role").join(" ")));
+        if (!dbaRows.length) return fail(this.id, "No DBA role exists in ACP-AR1.");
+        const ids = collectDbaIds(databases);
+        if (!ids.length) return needsReview(this.id, "CMDB/GSEP database records contain no DBA identity IDs.");
+        const types = ids.map(id => personType(getCedRecord(context, id))).filter(Boolean);
+        if (!types.length) return needsReview(this.id, "CED person-type evidence for the associated DBAs is unavailable.");
+        const configured = dbaRows.flatMap(row => rowValues(row, "personType")).map(normalizeText);
+        const matched = types.some(type => configured.some(value => value.includes(normalizeText(type)) || normalizeText(type).includes(value)));
+        return matched
+            ? pass(this.id, `ACP DBA Person Type matches CMDB/CED evidence (${[...new Set(types)].join(", ")}).`)
+            : fail(this.id, `ACP DBA Person Type does not match CMDB/CED evidence (${[...new Set(types)].join(", ")}).`);
     }
 };
 

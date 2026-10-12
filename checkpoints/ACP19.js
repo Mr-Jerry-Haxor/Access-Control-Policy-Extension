@@ -1,24 +1,28 @@
-import { getAnswerText, pass, fail, skip } from "./utils.js";
+import { buildReviewPrompt, fail, getAnswerText, getCedRecord, getNpiRows, needsReview, pass, rowValues, skip } from "./utils.js";
 
 const ACP19 = {
     id: "ACP19",
-    name: "Non-US Person Data Type Match",
-    category: "Export Compliance",
-
-    reviewPrompt: `Review this checkpoint against the supplied ACP context. Return JSON only using the ACP review contract: state, whatIsCorrect, whatIsWrong, whyItMatters, howToImprove, suggestedText, evidence, confidence, requiresHumanVerification, and questionsForApplicationTeam. Identify correct content as well as defects. For every applicable checkpoint, suggestedText is required and must be a complete ACP-ready proposed answer that retains verified facts, corrects defects, and uses [PLACEHOLDER] values for unknown facts. Do not invent facts; use NEEDS_VERIFICATION when authoritative evidence is unavailable.`,
+    name: "NPI owners are active",
+    category: "Non-Person Identifiers",
     type: "RULE",
+    reviewPrompt: buildReviewPrompt({
+        checkpointId: "ACP19",
+        requirement: "Every NPI owner is active at the time of ACP review.",
+        targetQuestion: "ACP-NPI1 Non Person Account Owner",
+        correction: "the NPI rows whose owner must be replaced or verified"
+    }),
     async validate(context) {
-        const ar1 = getAnswerText(context, "ACP-AR1");
-        if (!ar1) return skip(this.id, "ACP-AR1 data is missing.");
-        
-        // Simple rule check for the string since we lack a full HTML table parser
-        // If the table mentions "Non-US Person" and "US Export - Not Yet Determined", we flag a warning.
-        // A true robust check requires parsing the table cells properly.
-        if (ar1.includes("Non-US Person") && ar1.includes("US Export - Not Yet Determined")) {
-            return fail(this.id, "Non-US Person may have 'US Export - Not Yet Determined' selected.");
-        }
-        
-        return pass(this.id, "No conflicts detected for Non-US Person and Data Type.");
+        if (/^no$/i.test(getAnswerText(context, "ACP-NPI1").trim())) return skip(this.id, "ACP-NPI1 is No.");
+        const rows = getNpiRows(context);
+        if (!rows.length) return fail(this.id, "No NPI table rows are listed.");
+        const owners = [...new Set(rows.flatMap(row => rowValues(row, "nonPersonAccountOwner")).map(String))];
+        if (!owners.length) return fail(this.id, "No NPI owner IDs are listed.");
+        const missing = owners.filter(id => !getCedRecord(context, id));
+        if (missing.length) return needsReview(this.id, `CED evidence is unavailable for ${missing.length} NPI owner(s).`);
+        const inactive = owners.filter(id => String(getCedRecord(context, id)?.status || "").toUpperCase() !== "A");
+        return inactive.length
+            ? fail(this.id, `${inactive.length} NPI owner(s) are not active in CED.`)
+            : pass(this.id, `All ${owners.length} NPI owner(s) have active CED status.`);
     }
 };
 
