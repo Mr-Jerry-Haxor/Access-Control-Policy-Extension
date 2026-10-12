@@ -1,4 +1,4 @@
-import { buildReviewPrompt, fail, getAssetLabels, hasRoleMatching, needsReview, normalizeText, pass, skip } from "./utils.js";
+import { buildReviewPrompt, fail, hasRoleMatching, needsReview, normalizeText, pass, skip } from "./utils.js";
 
 const ACP9 = {
     id: "ACP9",
@@ -12,15 +12,17 @@ const ACP9 = {
         correction: "the missing developer role fields or the evidenced N/A rationale"
     }),
     async validate(context) {
-        const labels = getAssetLabels(context);
-        if (!labels.length) return needsReview(this.id, "Risk Profiler-derived asset labels are unavailable.");
-        const developmentLabels = labels.filter(label => /development channel|ip owner/i.test(normalizeText(label.labelType)));
-        const text = developmentLabels.map(label => label.label).join(" ");
-        if (!text) return needsReview(this.id, "No Risk Profiler IP-owner/development-channel label is available.");
-        if (!/boeing developed|boeing owned|\bboeing\b/i.test(text)) return skip(this.id, "Risk Profiler does not identify the application as Boeing-owned.");
+        const riskProfiler = context.supportingData?.riskProfiler;
+        const ipOwner = riskProfiler?.answers?.["CSIR-IPOwner"];
+        if (riskProfiler?.status !== "found" || !normalizeText(ipOwner)) {
+            return needsReview(this.id, "The matching Risk Profiler last assessment or its CSIR-IPOwner answer is unavailable.");
+        }
+        if (normalizeText(ipOwner) !== "boeing") {
+            return skip(this.id, `Risk Profiler CSIR-IPOwner is ${ipOwner}, not Boeing.`);
+        }
         return hasRoleMatching(context, /developer|programmer|software engineer/i)
-            ? pass(this.id, "Risk Profiler identifies Boeing ownership and ACP-AR1 includes a developer role.")
-            : fail(this.id, "Risk Profiler identifies Boeing ownership, but ACP-AR1 has no developer role.");
+            ? pass(this.id, "Risk Profiler CSIR-IPOwner is Boeing and ACP-AR1 includes a developer role.")
+            : fail(this.id, "Risk Profiler CSIR-IPOwner is Boeing, but ACP-AR1 has no developer role.");
     }
 };
 

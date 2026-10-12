@@ -4,12 +4,16 @@ import assert from "node:assert/strict";
 import { CHECKPOINTS } from "../core/checkpoint.js";
 import { BCAI, URLS } from "../utils/constants.js";
 import { normalizeQuestionTable } from "../core/context.js";
+import { extractRiskProfilerAnswers, selectRiskProfilerAssessment } from "../api/apiClient.js";
 import { buildBcaiResponsesPayload, parseBcaiResponse, parseBcaiResponseDetails } from "../ai/aiService.js";
 import ACP8 from "../checkpoints/ACP8.js";
+import ACP9 from "../checkpoints/ACP9.js";
+import ACP10 from "../checkpoints/ACP10.js";
 import ACP5 from "../checkpoints/ACP5.js";
 import ACP6 from "../checkpoints/ACP6.js";
 import ACP13 from "../checkpoints/ACP13.js";
 import ACP15 from "../checkpoints/ACP15.js";
+import ACP16 from "../checkpoints/ACP16.js";
 import ACP19 from "../checkpoints/ACP19.js";
 import ACP23 from "../checkpoints/ACP23.js";
 
@@ -34,6 +38,54 @@ test("HAR-confirmed node-api routes are configured", () => {
     assert.match(URLS.ACP_QUESTIONS, /\/node-api\/survey\/template\/\{id\}\/questions$/);
     assert.match(URLS.ACP_SURVEY_QUESTION, /\/node-api\/survey\/collector\/\{assessmentId\}\/question\/\{questionId\}$/);
     assert.match(URLS.CED_PUBLIC, /\/node-api\/identity\/ced\?bemsId=\{bemsId\}$/);
+    assert.match(URLS.RISK_PROFILER_ASSESSMENTS, /\/node-api\/assets\/4\/82\/assessment\/type\/35$/);
+    assert.match(URLS.RISK_PROFILER_ANSWERS, /\/api\/assessment\/survey\/\{id\}\/answers$/);
+});
+
+test("Risk Profiler evidence requires both asset ID and asset name and uses last assessment answers", () => {
+    const rows = [
+        { assetId: "42", assetName: "Wrong name", lastAssessmentId: 100 },
+        { assetId: "99", assetName: "Target", lastAssessmentId: 200 },
+        { assetId: "42", assetName: "Target", lastAssessmentId: 300 }
+    ];
+    assert.equal(selectRiskProfilerAssessment(rows, "42", "Target").lastAssessmentId, 300);
+    assert.equal(selectRiskProfilerAssessment(rows, "42", "Wrong target"), null);
+
+    const answers = extractRiskProfilerAnswers([
+        { alternateQuestionId: "CSIR-IPOwner", assessmentSurveyAnswerId: 1, answerOptions: [{ internalValue: "Non-Boeing" }] },
+        { alternateQuestionId: "CSIR-IPOwner", assessmentSurveyAnswerId: 2, answerOptions: [{ internalValue: "Boeing" }] },
+        { alternateQuestionId: "CSIR-SvcAcct", answerOptions: [{ internalValue: "Yes" }] }
+    ]);
+    assert.equal(answers["CSIR-IPOwner"], "Boeing");
+    assert.equal(answers["CSIR-SvcAcct"], "Yes");
+});
+
+test("ACP9 uses the exact Risk Profiler CSIR-IPOwner answer", async () => {
+    const boeing = await ACP9.validate(contextWithRoles(
+        [{ role: "Software Developer" }],
+        { riskProfiler: { status: "found", answers: { "CSIR-IPOwner": "Boeing" } } }
+    ));
+    assert.equal(boeing.status, "PASS");
+
+    const nonBoeing = await ACP9.validate(contextWithRoles(
+        [{ role: "Application User" }],
+        { riskProfiler: { status: "found", answers: { "CSIR-IPOwner": "Non-Boeing" } } }
+    ));
+    assert.equal(nonBoeing.status, "N/A");
+});
+
+test("ACP16 compares ACP-NPI1 with the same Risk Profiler assessment answers", async () => {
+    const matching = await ACP16.validate(contextWithRoles([], {
+        answers: { "ACP-NPI1": "Yes" },
+        riskProfiler: { status: "found", answers: { "CSIR-SvcAcct": "Yes" } }
+    }));
+    assert.equal(matching.status, "PASS");
+
+    const mismatch = await ACP16.validate(contextWithRoles([], {
+        answers: { "ACP-NPI1": "No" },
+        riskProfiler: { status: "found", answers: { "CSIR-SvcAcct": "Yes" } }
+    }));
+    assert.equal(mismatch.status, "FAIL");
 });
 
 test("BCAI gpt-6-luna payload follows the HAR-confirmed Responses contract", () => {
@@ -229,4 +281,23 @@ test("AI role evidence is formatted JSON without raw collector objects", () => {
     assert.match(prompt, /"accessRoles"/);
     assert.match(prompt, /"role": \[/);
     assert.doesNotMatch(prompt, /rawItems|must-not-be-sent/);
+});
+
+test("ACP10 asks AI to evaluate all same-row fields without requiring Application Admin", () => {
+    const prompt = ACP10.buildPrompt(contextWithRoles([{
+        role: "Data Viewer",
+        responsibility: "Views approved records",
+        environment: ["Production"],
+        authorizedEntity: "Finance analysts",
+        personStatus: "U.S. Person",
+        personType: "Employee",
+        accessToDB: "None",
+        accessToServer: "None",
+        accessToApplication: "Read",
+        dataType: "Boeing Proprietary"
+    }]));
+    assert.match(prompt, /Evaluate every ACP-AR1 row separately/);
+    assert.match(prompt, /Application Admin is only an example/);
+    assert.match(prompt, /"accessToApplication": \[\s*"Read"/);
+    assert.doesNotMatch(prompt, /rawItems/);
 });

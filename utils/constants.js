@@ -19,6 +19,8 @@ export const CONFIG = {
 
 export const URLS = {
     PRIMARY_ACPS: 'https://cairois.web.boeing.com/node-api/assets/4/82/assessment/type/48',
+    RISK_PROFILER_ASSESSMENTS: 'https://cairois.web.boeing.com/node-api/assets/4/82/assessment/type/35',
+    RISK_PROFILER_ANSWERS: 'https://cairois.web.boeing.com/api/assessment/survey/{id}/answers',
     ACP_DETAIL:   'https://cairois.web.boeing.com/api/assessment/{id}/detail',
     ACP_ANSWERS:  'https://cairois.web.boeing.com/api/assessment/survey/{id}/answers',
     ACP_QUESTIONS: 'https://cairois.web.boeing.com/node-api/survey/template/{id}/questions',

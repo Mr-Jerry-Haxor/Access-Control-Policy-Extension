@@ -1,36 +1,31 @@
-import { buildReviewPrompt, fail, getRoleRows, needsReview, normalizeText, pass, roleLabel, rowValues } from "./utils.js";
+import { buildAiValidationPrompt, buildReviewPrompt, formatRoleRowsForAi, skip } from "./utils.js";
 
-function selectedLevels(row) {
-    return rowValues(row, "accessToDB", "accessToServer", "accessToApplication").map(normalizeText);
-}
+const REQUIREMENT = "Each ACP-AR1 role name is semantically consistent with every other field in the same role row.";
 
 const ACP10 = {
     id: "ACP10",
     name: "Role name agrees with role fields",
     category: "Access Roles",
-    type: "RULE",
+    type: "AI",
     reviewPrompt: buildReviewPrompt({
         checkpointId: "ACP10",
-        requirement: "Each role name is consistent with access levels and other fields in that role row.",
+        requirement: REQUIREMENT,
         targetQuestion: "ACP-AR1",
         correction: "exact role-name or field corrections for each conflicting row"
     }),
+    buildPrompt(context) {
+        const roles = formatRoleRowsForAi(context);
+        if (!roles.length) return null;
+        return buildAiValidationPrompt({
+            checkpointId: this.id,
+            requirement: REQUIREMENT,
+            decisionRules: "Evaluate every ACP-AR1 row separately. Determine the ordinary access meaning explicitly conveyed by that row's role name, then compare it with the responsibility, environment, authorized entity, person status, person type, database access, server access, application access, and data type in the same row. Application Admin is only an example, not a required role or a special-case rule. Examples of meaningful name constraints include Admin or Administrator requiring elevated/admin-level access in the relevant scope, Root or Superuser requiring root-level access, Read-Only or Viewer conflicting with write/elevated/admin access, and Write-Only conflicting with read access. Also identify other direct semantic contradictions supported by the supplied row. Do not infer a conflict from a generic role name, and do not require every access field to be populated when the role name does not imply that scope. FAIL if any row has a direct conflict. PASS only when every row has no evidenced conflict. Use REVIEW when missing or ambiguous row data prevents a reliable decision. Do not use NA when role rows are present. Do not invent intended access or application-specific responsibilities.",
+            evidence: { accessRoles: roles }
+        });
+    },
     async validate(context) {
-        const rows = getRoleRows(context);
-        if (!rows.length) return needsReview(this.id, "ACP-AR1 role rows are unavailable.");
-        const conflicts = [];
-        for (const row of rows) {
-            const name = normalizeText(rowValues(row, "role").join(" "));
-            const levels = selectedLevels(row);
-            const has = pattern => levels.some(level => pattern.test(level));
-            if (/\b(root|superuser)\b/.test(name) && !has(/root|superuser/)) conflicts.push(`${roleLabel(row)}: role name implies Root`);
-            else if (/\b(admin|administrator)\b/.test(name) && !has(/admin|elevated|root|full control/)) conflicts.push(`${roleLabel(row)}: role name implies Admin/Elevated`);
-            else if (/\bread only\b/.test(name) && (has(/write|modify|admin|elevated|root/) || !has(/read|view/))) conflicts.push(`${roleLabel(row)}: Read-Only name conflicts with access level`);
-            else if (/\bwrite only\b/.test(name) && (has(/read|admin|elevated|root/) || !has(/write|modify/))) conflicts.push(`${roleLabel(row)}: Write-Only name conflicts with access level`);
-        }
-        return conflicts.length
-            ? fail(this.id, `Role-name conflicts: ${conflicts.join("; ")}.`)
-            : pass(this.id, `No explicit role-name/access-level conflicts were found in ${rows.length} role row(s).`);
+        const prompt = this.buildPrompt(context);
+        return prompt ? { checkpointId: this.id, type: "AI", prompt } : skip(this.id, "ACP-AR1 has no role rows.");
     }
 };
 

@@ -26,6 +26,7 @@ import {
     getSisServers,
     getIdentities,
     getCedPublic,
+    getRiskProfilerEvidence,
     searchAssetLabels
 } from '../api/apiClient.js';
 import { logger } from '../utils/utils.js';
@@ -322,11 +323,12 @@ function collectBemsIdsFromValues(values) {
 async function buildSupportingData({ assessment, detail, questions, questionMap }) {
     const assessmentId = assessment.assessmentId;
     const assetId = String(assessment.assetId || detail?.assets?.[0]?.assetId || detail?.assetId || '');
+    const assetName = String(assessment.raw?.assetName || assessment.title || detail?.assetName || detail?.assets?.[0]?.assetName || '').trim();
     const assetTypeId = Number(assessment.assetTypeId || 4);
     const assessmentTypeId = Number(detail?.assessmentTypeId || 48);
     const surveyTemplateId = detail?.surveyTemplateId;
 
-    const [assetSummary, reviewSummaries, assessmentContacts, contacts, assets, workflowSteps, assessmentRecord, surveyTemplate, questionGroups, esatsRoles, esatsBusapp, assetLabels, gsepDatabases, sisServerIds] = await Promise.all([
+    const [assetSummary, reviewSummaries, assessmentContacts, contacts, assets, workflowSteps, assessmentRecord, surveyTemplate, questionGroups, esatsRoles, esatsBusapp, assetLabels, gsepDatabases, sisServerIds, riskProfiler] = await Promise.all([
         getAssessmentAssetSummary(assetId, assetTypeId, assessmentTypeId).catch(err => ({ error: err.message })),
         getReviewSummaries(assetId, assetTypeId, assessmentTypeId).catch(err => ({ error: err.message })),
         getAssessmentContacts(assessmentId).catch(err => ({ error: err.message })),
@@ -340,7 +342,8 @@ async function buildSupportingData({ assessment, detail, questions, questionMap 
         getEsatsBusapp(assetId).catch(err => ({ error: err.message })),
         searchAssetLabels(assessmentId).catch(err => ({ error: err.message })),
         getGsepDatabases(assetId).catch(err => ({ error: err.message })),
-        getSisServerIds(assetId).catch(err => ({ error: err.message }))
+        getSisServerIds(assetId).catch(err => ({ error: err.message })),
+        getRiskProfilerEvidence(assetId, assetName).catch(err => ({ status: 'error', error: err.message, answers: {} }))
     ]);
     const serverIds = Array.isArray(sisServerIds) ? sisServerIds.map(item => item.serverId).filter(Boolean) : [];
     const sisServers = await getSisServers(serverIds).catch(err => ({ error: err.message }));
@@ -384,6 +387,7 @@ async function buildSupportingData({ assessment, detail, questions, questionMap 
 
     return {
         assetId,
+        assetName,
         assetTypeId,
         assessmentTypeId,
         assetSummary,
@@ -402,6 +406,8 @@ async function buildSupportingData({ assessment, detail, questions, questionMap 
         esatsRoles,
         esatsBusapp,
         assetLabels,
+        riskProfiler,
+        riskProfilerAnswers: riskProfiler?.answers || {},
         gsepDatabases,
         sisServerIds,
         sisServers,

@@ -50,6 +50,99 @@ export async function getACPAnswers(assessmentId) {
     return fetchJson(url);
 }
 
+/** Fetches the full Risk Profiler assessment list. */
+export async function getRiskProfilerAssessmentList() {
+    const data = unwrapCairoData(await fetchJson(URLS.RISK_PROFILER_ASSESSMENTS));
+    if (!Array.isArray(data)) throw new Error('Risk Profiler assessment list is not a valid array.');
+    return data;
+}
+
+/** Fetches answers for a selected Risk Profiler assessment. */
+export async function getRiskProfilerAssessmentAnswers(assessmentId) {
+    const url = replaceTokens(URLS.RISK_PROFILER_ANSWERS, { id: assessmentId });
+    const data = await fetchJson(url);
+    const answers = Array.isArray(data) ? data : data?.answers;
+    if (!Array.isArray(answers)) throw new Error(`Risk Profiler assessment ${assessmentId} answers are not a valid array.`);
+    return answers;
+}
+
+/** Selects a Risk Profiler row only when both asset ID and asset name match. */
+export function selectRiskProfilerAssessment(rows, assetId, assetName) {
+    const expectedId = String(assetId ?? '').trim();
+    const expectedName = String(assetName ?? '').trim();
+    if (!expectedId || !expectedName || !Array.isArray(rows)) return null;
+
+    const matches = rows.filter(row =>
+        String(row?.assetId ?? '').trim() === expectedId &&
+        String(row?.assetName ?? '').trim() === expectedName
+    );
+    if (!matches.length) return null;
+
+    return matches.sort((left, right) =>
+        Number(right?.lastAssessmentId || 0) - Number(left?.lastAssessmentId || 0)
+    )[0];
+}
+
+function answerTimestamp(answer) {
+    for (const value of [answer?.updatedOn, answer?.createdOn]) {
+        const timestamp = Date.parse(String(value || ''));
+        if (!Number.isNaN(timestamp)) return timestamp;
+    }
+    return 0;
+}
+
+function answerValues(answer) {
+    const values = [];
+    for (const option of answer?.answerOptions || []) {
+        values.push(option?.internalValue ?? option?.displayValue ?? option?.additionalData);
+    }
+    if (!values.length) values.push(answer?.answer, answer?.value, answer?.response);
+    const unique = new Map();
+    for (const value of values) {
+        const text = String(value ?? '').trim();
+        const key = text.toLowerCase();
+        if (text && !unique.has(key)) unique.set(key, text);
+    }
+    return [...unique.values()];
+}
+
+/** Extracts the newest unambiguous value for each requested Risk Profiler question. */
+export function extractRiskProfilerAnswers(answers, questionIds = ['CSIR-IPOwner', 'CSIR-SvcAcct']) {
+    const output = {};
+    for (const questionId of questionIds) {
+        const matches = (Array.isArray(answers) ? answers : [])
+            .filter(answer => String(answer?.alternateQuestionId || '').trim().toLowerCase() === questionId.toLowerCase())
+            .sort((left, right) =>
+                answerTimestamp(right) - answerTimestamp(left) ||
+                Number(right?.assessmentSurveyAnswerId || 0) - Number(left?.assessmentSurveyAnswerId || 0)
+            );
+        const values = answerValues(matches[0]);
+        if (values.length === 1) output[questionId] = values[0];
+    }
+    return output;
+}
+
+/** Loads the last completed Risk Profiler answers for an exact ACP asset match. */
+export async function getRiskProfilerEvidence(assetId, assetName) {
+    const rows = await getRiskProfilerAssessmentList();
+    const match = selectRiskProfilerAssessment(rows, assetId, assetName);
+    if (!match) return { status: 'no-match', assetId, assetName, answers: {} };
+
+    const assessmentId = match.lastAssessmentId;
+    if (!/^[1-9]\d*$/.test(String(assessmentId ?? ''))) {
+        return { status: 'no-assessment', assetId, assetName, answers: {} };
+    }
+
+    const answers = await getRiskProfilerAssessmentAnswers(assessmentId);
+    return {
+        status: 'found',
+        assetId: match.assetId,
+        assetName: match.assetName,
+        assessmentId,
+        answers: extractRiskProfilerAnswers(answers)
+    };
+}
+
 /** Fetches all questions for a survey template. */
 export async function getACPQuestions(surveyTemplateId) {
     if (!surveyTemplateId) return [];

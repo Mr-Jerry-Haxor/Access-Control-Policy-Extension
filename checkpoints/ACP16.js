@@ -16,7 +16,11 @@ const ACP16 = {
         if (!/^(yes|no)$/i.test(acpAnswer)) {
             return needsReview(this.id, "ACP-NPI1 does not contain a usable Yes/No answer.");
         }
-        const riskProfiler = context.supportingData?.riskProfilerAnswers?.["CSIR-SvcAcct"];
+        const riskProfilerEvidence = context.supportingData?.riskProfiler;
+        const riskProfiler = riskProfilerEvidence?.answers?.["CSIR-SvcAcct"];
+        if (riskProfilerEvidence?.status !== "found") {
+            return needsReview(this.id, `ACP-NPI1 is ${acpAnswer}, but the matching Risk Profiler last assessment is unavailable.`);
+        }
         if (!/^(yes|no)$/i.test(String(riskProfiler || "").trim())) {
             return needsReview(this.id, `ACP-NPI1 is ${acpAnswer}, but authoritative CSIR-SvcAcct evidence is unavailable.`);
         }
