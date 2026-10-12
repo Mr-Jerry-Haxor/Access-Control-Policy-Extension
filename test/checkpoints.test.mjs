@@ -2,8 +2,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { CHECKPOINTS } from "../core/checkpoint.js";
-import { URLS } from "../utils/constants.js";
+import { BCAI, URLS } from "../utils/constants.js";
 import { normalizeQuestionTable } from "../core/context.js";
+import { buildBcaiResponsesPayload, parseBcaiResponse, parseBcaiResponseDetails } from "../ai/aiService.js";
 import ACP8 from "../checkpoints/ACP8.js";
 import ACP13 from "../checkpoints/ACP13.js";
 import ACP15 from "../checkpoints/ACP15.js";
@@ -31,6 +32,86 @@ test("HAR-confirmed node-api routes are configured", () => {
     assert.match(URLS.ACP_QUESTIONS, /\/node-api\/survey\/template\/\{id\}\/questions$/);
     assert.match(URLS.ACP_SURVEY_QUESTION, /\/node-api\/survey\/collector\/\{assessmentId\}\/question\/\{questionId\}$/);
     assert.match(URLS.CED_PUBLIC, /\/node-api\/identity\/ced\?bemsId=\{bemsId\}$/);
+});
+
+test("BCAI gpt-6-luna payload follows the HAR-confirmed Responses contract", () => {
+    const payload = buildBcaiResponsesPayload(
+        { guid: "test-guid" },
+        "gpt-6-luna",
+        [
+            { role: "user", content: [{ type: "text", text: "Question" }] },
+            { role: "assistant", content: [{ type: "text", text: "Answer" }] }
+        ]
+    );
+
+    assert.match(BCAI.ENDPOINT, /\/genai-backend-api\/responses$/);
+    assert.deepEqual(Object.keys(payload), ["bcai_options", "model", "input", "stream"]);
+    assert.deepEqual(BCAI.DATA_SOURCES, ["Information Technology Command Media"]);
+    assert.deepEqual(payload.bcai_options.data_sources, ["Information Technology Command Media"]);
+    assert.equal(payload.input[0].content[0].type, "input_text");
+    assert.equal(payload.input[1].content[0].type, "output_text");
+    assert.equal(payload.bcai_options.database_options.save_to_database, false);
+    assert.equal("reasoning_effort" in payload, false);
+    assert.equal("response_max_tokens" in payload, false);
+});
+
+test("BCAI parser joins Responses API output text deltas", () => {
+    const assistantItem = {
+        id: "msg_test",
+        type: "message",
+        status: "completed",
+        phase: "final_answer",
+        role: "assistant",
+        content: [{ type: "output_text", text: "Hello world", annotations: [], logprobs: [] }]
+    };
+    const raw = [
+        JSON.stringify({ type: "response.output_text.delta", delta: "Hello" }),
+        JSON.stringify({ type: "response.output_text.delta", delta: " world" }),
+        JSON.stringify({ type: "response.output_item.done", item: assistantItem }),
+        JSON.stringify({
+            type: "response.completed",
+            response: {
+                id: "resp_test",
+                model: "gpt-6-luna",
+                status: "completed",
+                error: null,
+                incomplete_details: null,
+                usage: { input_tokens: 10, output_tokens: 2, total_tokens: 12 }
+            }
+        })
+    ].join("\n");
+    assert.equal(parseBcaiResponse(raw), "Hello world");
+    const details = parseBcaiResponseDetails(raw);
+    assert.equal(details.outputItem.id, "msg_test");
+    assert.equal(details.status, "completed");
+    assert.equal(details.usage.total_tokens, 12);
+    assert.equal(details.responseId, "resp_test");
+    assert.equal(details.model, "gpt-6-luna");
+
+    const followUp = buildBcaiResponsesPayload(
+        { guid: "test-guid" },
+        "gpt-6-luna",
+        [assistantItem, { role: "user", content: [{ type: "text", text: "Next" }] }]
+    );
+    assert.equal(followUp.input[0].id, "msg_test");
+    assert.equal(followUp.input[0].status, "completed");
+    assert.equal(followUp.input[0].phase, "final_answer");
+});
+
+test("BCAI parser exposes failed and incomplete terminal states", () => {
+    const failed = parseBcaiResponseDetails(JSON.stringify({
+        type: "response.failed",
+        response: { status: "failed", error: { code: "provider_error", message: "Unavailable" } }
+    }));
+    assert.equal(failed.status, "failed");
+    assert.equal(failed.error.code, "provider_error");
+
+    const incomplete = parseBcaiResponseDetails(JSON.stringify({
+        type: "response.incomplete",
+        response: { status: "incomplete", incomplete_details: { reason: "max_output_tokens" } }
+    }));
+    assert.equal(incomplete.status, "incomplete");
+    assert.equal(incomplete.incompleteDetails.reason, "max_output_tokens");
 });
 
 test("collector payload normalizes role rows and option values", () => {

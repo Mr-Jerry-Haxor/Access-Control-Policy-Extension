@@ -6,7 +6,7 @@
 
 import { getAllCheckpoints } from './checkpoint.js';
 import { sendPrompt, extractJson, createConversationSession } from '../ai/aiService.js';
-import { logger } from '../utils/utils.js';
+import { logger, sleep } from '../utils/utils.js';
 import { CONFIG } from '../utils/constants.js';
 import { ACP_REVIEW_GUIDANCE } from '../knowledge/acpReviewGuidance.js';
 import { CHECKPOINT_EVIDENCE } from '../knowledge/checkpointEvidenceMap.js';
@@ -46,7 +46,7 @@ export async function runAiCheckpoint(checkpoint, context, options = {}) {
     let lastError = null;
     for (let attempt = 1; attempt <= CONFIG.AI_RETRY_ATTEMPTS; attempt++) {
         try {
-            rawResponse = await sendPrompt(prompt, options);
+            rawResponse = await sendPrompt(prompt, { ...options, retries: 1 });
             parsed = extractJson(rawResponse);
             if (!parsed) throw new Error('Boeing AI returned unparseable JSON.');
             break;
@@ -54,6 +54,10 @@ export async function runAiCheckpoint(checkpoint, context, options = {}) {
             if (options.signal?.aborted || aiErr?.name === 'AbortError') throw aiErr;
             lastError = aiErr;
             logger.warn(`AI checkpoint ${checkpoint.id} attempt ${attempt}/${CONFIG.AI_RETRY_ATTEMPTS} failed:`, aiErr.message);
+            if (aiErr?.retryable === false) break;
+            if (attempt < CONFIG.AI_RETRY_ATTEMPTS) {
+                await sleep(CONFIG.AI_RETRY_BASE_DELAY_MS * (2 ** (attempt - 1)));
+            }
         }
     }
     if (!parsed) {

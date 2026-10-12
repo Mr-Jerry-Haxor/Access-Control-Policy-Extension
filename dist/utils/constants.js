@@ -11,6 +11,7 @@ export const CONFIG = {
     MAX_CONCURRENT_CONTEXTS: 3,
     AI_RETRY_ATTEMPTS: 2,
     AI_RETRY_BASE_DELAY_MS: 750,
+    BCAI_REQUEST_TIMEOUT_MS: 180000,
     TOKEN_THRESHOLD: 180000,
     CACHE_TTL_MS: 5 * 60 * 1000, // 5 minutes
     BCAI_MODELS_CACHE_TTL_MS: 24 * 60 * 60 * 1000 // 1 day
@@ -42,12 +43,17 @@ export const URLS = {
 };
 
 export const BCAI = {
-    ENDPOINT: 'https://boeingai.web.boeing.com/genai-backend-api/conversation',
+    ENDPOINT: 'https://boeingai.web.boeing.com/genai-backend-api/responses',
     MODELS_ENDPOINT: 'https://boeingai.web.boeing.com/bcai-security-api/models',
+    DATA_SOURCES_ENDPOINT: 'https://boeingai.web.boeing.com/bcai-security-api/rags-with-models',
+    DATA_SOURCE_CATALOG_ENDPOINT: 'https://boeingai.web.boeing.com/bcai-security-api/rags',
+    AUTHORIZED_ENDPOINT: 'https://boeingai.web.boeing.com/bcai-security-api/authorized',
+    SESSION_ENDPOINT: 'https://boeingai.web.boeing.com/api/oauth/checksession',
+    TOKEN_COUNT_ENDPOINT: 'https://boeingai.web.boeing.com/bcai-token-counter-api/count-tokens',
     ORIGIN: 'https://boeingai.web.boeing.com',
     MODEL: 'gpt-5.4-mini',
     DEFAULT_RESPONSE_MAX_TOKENS: 32000,
-    CONVERSATION_MODE: ['Information Technology Command Media'],
+    DATA_SOURCES: Object.freeze(['Information Technology Command Media']),
     CONVERSATION_SOURCE: 'BCAI'
 };
 

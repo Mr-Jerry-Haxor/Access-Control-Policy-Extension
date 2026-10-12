@@ -6,7 +6,7 @@
 import { estimateTokens, logger, sleep } from '../utils/utils.js';
 import { BCAI, CONFIG } from '../utils/constants.js';
 import { getBcaiModelsState, getConversation, saveConversation } from '../storage/storage.js';
-import { sendConversation } from '../api/apiClient.js';
+import { countBcaiTokens, sendConversation } from '../api/apiClient.js';
 
 // ============================================================
 // Conversation Management
@@ -100,48 +100,73 @@ export async function sendPrompt(prompt, options = {}) {
         content: [{ type: 'text', text: prompt }]
     };
 
-    const payload = {
-        conversation_guid: conversation.guid,
-        conversation_mode: BCAI.CONVERSATION_MODE,
-        conversation_source: BCAI.CONVERSATION_SOURCE,
-        conversation_name: '',
-        model: modelConfig.modelId,
-        skip_db_save: false,
-        messages: [...conversation.messages, userMessage]
-    };
+    const payload = buildBcaiResponsesPayload(
+        conversation,
+        modelConfig.modelId,
+        [...conversation.messages, userMessage]
+    );
 
-    if (modelConfig.responseMaxTokens) {
-        payload.response_max_tokens = modelConfig.responseMaxTokens;
+    try {
+        const requestTokens = await countBcaiTokens(payload.input, payload.model, { signal });
+        if (requestTokens >= modelConfig.tokenThreshold) {
+            const error = new Error(`BCAI input is too large for ${payload.model} (${requestTokens} tokens; safe limit ${modelConfig.tokenThreshold}).`);
+            error.name = 'BcaiInputTooLargeError';
+            error.retryable = false;
+            throw error;
+        }
+    } catch (error) {
+        if (signal?.aborted || error?.name === 'AbortError') throw abortError();
+        if (error?.name === 'BcaiInputTooLargeError') throw error;
+        logger.warn('BCAI token counting was unavailable; continuing with the local estimate:', error.message);
     }
 
     let response = '';
+    let responseUsage = null;
     let lastError = null;
     for (let attempt = 1; attempt <= Math.max(1, retries); attempt++) {
         if (signal?.aborted) throw abortError();
         try {
             const rawResponse = await sendConversation(payload, { signal });
-            response = parseBcaiResponse(rawResponse);
+            const parsedResponse = parseBcaiResponseDetails(rawResponse);
+            if (parsedResponse.error) throw bcaiResponseError(parsedResponse.error, true);
+            if (parsedResponse.status === 'incomplete') {
+                throw bcaiResponseError(
+                    parsedResponse.incompleteDetails?.reason || 'BCAI returned an incomplete response.',
+                    false
+                );
+            }
+            response = parsedResponse.text;
             if (!response.trim()) throw new Error('BCAI returned an empty response.');
+            conversation.lastOutputItem = parsedResponse.outputItem;
+            responseUsage = parsedResponse.usage;
             lastError = null;
             break;
         } catch (error) {
             if (signal?.aborted || error?.name === 'AbortError') throw abortError();
             lastError = error;
             logger.warn(`BCAI prompt attempt ${attempt}/${retries} failed:`, error.message);
+            if (error?.retryable === false) break;
             if (attempt < retries) {
-                await sleep(CONFIG.AI_RETRY_BASE_DELAY_MS * attempt);
+                await sleep(CONFIG.AI_RETRY_BASE_DELAY_MS * (2 ** (attempt - 1)));
             }
         }
     }
     if (lastError) throw lastError;
 
     // Add assistant message and update token usage
-    conversation.messages.push(userMessage, {
-        role: 'assistant',
-        content: [{ type: 'text', text: response }]
-    });
+    conversation.messages.push(
+        userMessage,
+        conversation.lastOutputItem || {
+            role: 'assistant',
+            content: [{ type: 'text', text: response }]
+        }
+    );
+    delete conversation.lastOutputItem;
 
-    conversation.tokenUsage += estimateTokens(prompt) + estimateTokens(response);
+    const actualTotalTokens = Number(responseUsage?.total_tokens);
+    conversation.tokenUsage = Number.isFinite(actualTotalTokens)
+        ? actualTotalTokens
+        : conversation.tokenUsage + estimateTokens(prompt) + estimateTokens(response);
 
     if (!conversation.isolated) {
         await saveConversation({
@@ -159,6 +184,16 @@ function abortError() {
     return new DOMException('Operation cancelled.', 'AbortError');
 }
 
+function bcaiResponseError(detail, retryable) {
+    const message = typeof detail === 'string'
+        ? detail
+        : detail?.message || detail?.code || JSON.stringify(detail);
+    const error = new Error(`BCAI response failed: ${message}`);
+    error.name = 'BcaiResponseError';
+    error.retryable = retryable;
+    return error;
+}
+
 async function getSelectedModelConfig() {
     const { models, selectedModelId, userSelectedModel } = await getBcaiModelsState();
     const userSelected = userSelectedModel
@@ -169,27 +204,70 @@ async function getSelectedModelConfig() {
     if (!selectedModel) {
         return {
             modelId: BCAI.MODEL,
-            responseMaxTokens: BCAI.DEFAULT_RESPONSE_MAX_TOKENS,
-            tokenThreshold: CONFIG.TOKEN_THRESHOLD
+            tokenThreshold: CONFIG.TOKEN_THRESHOLD,
+            maxContextTokens: CONFIG.TOKEN_THRESHOLD
         };
     }
 
-    const supportsResponseMaxTokens = selectedModel.supported_parameters?.includes('response_max_tokens');
-    const responseMaxTokens = supportsResponseMaxTokens
-        ? selectedModel.default_response_max_tokens || selectedModel.response_max_tokens || BCAI.DEFAULT_RESPONSE_MAX_TOKENS
-        : null;
-
     return {
         modelId: selectedModel.model_id,
-        responseMaxTokens,
-        tokenThreshold: getTokenThreshold(selectedModel)
+        tokenThreshold: getTokenThreshold(selectedModel),
+        maxContextTokens: Number(selectedModel.max_context_tokens) || null
     };
+}
+
+/**
+ * Builds the request shape used by the current BCAI Responses endpoint.
+ * Keep model capability metadata out of this payload: the October 2026 BCAI
+ * HAR shows that gpt-6-luna succeeds without reasoning_effort or token fields.
+ */
+export function buildBcaiResponsesPayload(conversation, modelId, messages) {
+    return {
+        bcai_options: {
+            data_sources: [...BCAI.DATA_SOURCES],
+            request_source: BCAI.CONVERSATION_SOURCE,
+            database_options: {
+                save_to_database: false,
+                conversation_name: '',
+                guid: conversation.guid
+            }
+        },
+        model: modelId,
+        input: messages.map(toResponsesMessage),
+        stream: true
+    };
+}
+
+function toResponsesMessage(message) {
+    const role = message?.role === 'assistant' ? 'assistant' : 'user';
+    const content = Array.isArray(message?.content) ? message.content : [message?.content];
+    const type = role === 'assistant' ? 'output_text' : 'input_text';
+
+    const normalized = {
+        role,
+        type: 'message',
+        content: content.map(part => ({
+            type,
+            text: typeof part === 'string'
+                ? (part || '[empty]')
+                : (part?.text || '[empty]'),
+            ...(type === 'output_text' ? {
+                annotations: Array.isArray(part?.annotations) ? part.annotations : [],
+                logprobs: Array.isArray(part?.logprobs) ? part.logprobs : []
+            } : {})
+        }))
+    };
+
+    if (role === 'assistant' && message?.id) normalized.id = message.id;
+    if (role === 'assistant' && message?.status) normalized.status = message.status;
+    if (role === 'assistant' && message?.phase) normalized.phase = message.phase;
+    return normalized;
 }
 
 function getTokenThreshold(model) {
     const maxContextTokens = Number(model.max_context_tokens) || null;
     if (!maxContextTokens) return CONFIG.TOKEN_THRESHOLD;
-    return maxContextTokens;
+    return Math.floor(maxContextTokens * 0.9);
 }
 
 function getHighestTokenModel(models) {
@@ -211,10 +289,22 @@ function getHighestTokenModel(models) {
  * @returns {string}
  */
 export function parseBcaiResponse(raw) {
-    if (!raw) return '';
+    return parseBcaiResponseDetails(raw).text;
+}
+
+/** Returns response text plus the completed assistant item used as history. */
+export function parseBcaiResponseDetails(raw) {
+    if (!raw) return { text: '', outputItem: null };
 
     const lines = raw.split('\n').map(line => line.trim()).filter(Boolean);
     let content = '';
+    let outputItem = null;
+    let status = null;
+    let usage = null;
+    let error = null;
+    let incompleteDetails = null;
+    let responseId = null;
+    let model = null;
 
     for (const line of lines) {
         const dataLine = line.startsWith('data:') ? line.slice(5).trim() : line;
@@ -222,21 +312,41 @@ export function parseBcaiResponse(raw) {
 
         try {
             const json = JSON.parse(dataLine);
+            const metadata = getResponseMetadata(json);
+            status = metadata.status || status;
+            usage = metadata.usage || usage;
+            error = metadata.error || error;
+            incompleteDetails = metadata.incompleteDetails || incompleteDetails;
+            responseId = metadata.responseId || responseId;
+            model = metadata.model || model;
+            outputItem = getCompletedOutputItem(json) || outputItem;
             const delta =
+                (json?.type === 'response.output_text.delta' ? json.delta : '') ||
                 json?.choices?.[0]?.delta?.content ||
                 json?.choices?.[0]?.messages?.[0]?.delta ||
                 json?.choices?.[0]?.message?.content ||
                 json?.message?.content ||
+                (!content ? extractCompletedResponseText(json) : '') ||
                 '';
             if (delta) content += delta;
         } catch {
             try {
                 const decoded = JSON.parse(atob(dataLine));
+                const metadata = getResponseMetadata(decoded);
+                status = metadata.status || status;
+                usage = metadata.usage || usage;
+                error = metadata.error || error;
+                incompleteDetails = metadata.incompleteDetails || incompleteDetails;
+                responseId = metadata.responseId || responseId;
+                model = metadata.model || model;
+                outputItem = getCompletedOutputItem(decoded) || outputItem;
                 const delta =
+                    (decoded?.type === 'response.output_text.delta' ? decoded.delta : '') ||
                     decoded?.choices?.[0]?.delta?.content ||
                     decoded?.choices?.[0]?.messages?.[0]?.delta ||
                     decoded?.choices?.[0]?.message?.content ||
                     decoded?.message?.content ||
+                    (!content ? extractCompletedResponseText(decoded) : '') ||
                     '';
                 if (delta) content += delta;
             } catch {
@@ -245,7 +355,43 @@ export function parseBcaiResponse(raw) {
         }
     }
 
-    return content;
+    return { text: content, outputItem, status, usage, error, incompleteDetails, responseId, model };
+}
+
+function getResponseMetadata(event) {
+    const response = event?.response || null;
+    const eventError = event?.type === 'error' ? event.error || event : null;
+    return {
+        status: response?.status || (event?.type === 'response.incomplete' ? 'incomplete' : null),
+        usage: response?.usage || null,
+        error: response?.error || eventError,
+        incompleteDetails: response?.incomplete_details || null,
+        responseId: response?.id || null,
+        model: response?.model || null
+    };
+}
+
+function getCompletedOutputItem(event) {
+    if (event?.type === 'response.output_item.done' && event?.item?.type === 'message') {
+        return event.item;
+    }
+    const output = event?.response?.output;
+    if (!Array.isArray(output)) return null;
+    return output.find(item => item?.type === 'message' && item?.role === 'assistant') || null;
+}
+
+function extractCompletedResponseText(event) {
+    const response = event?.response || event;
+    if (typeof response?.output_text === 'string') return response.output_text;
+
+    for (const item of response?.output || []) {
+        for (const part of item?.content || []) {
+            if (part?.type === 'output_text' && typeof part.text === 'string') {
+                return part.text;
+            }
+        }
+    }
+    return '';
 }
 
 /**

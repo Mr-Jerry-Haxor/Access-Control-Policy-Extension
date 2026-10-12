@@ -7,7 +7,7 @@
  import { reviewContext, fineTuneSuggestion } from './core/review.js';
  import { buildContexts } from './core/context.js';
  import { saveResults, clearResults, saveReviewResult, clearReviewResults, getBcaiModelsState, saveBcaiModels, saveSelectedBcaiModel, getExtensionSurface, saveExtensionSurface } from './storage/storage.js';
- import { getACPList, getBcaiModels } from './api/apiClient.js';
+ import { getACPList, getBcaiAuthorization, getBcaiModels } from './api/apiClient.js';
  import { BCAI, CONFIG, URLS } from './utils/constants.js';
 
  const activeOperations = new Map();
@@ -165,7 +165,10 @@
  async function loadBcaiModels({ force = false } = {}) {
      const state = await getBcaiModelsState();
      const cacheAge = Date.now() - (state.fetchedAt || 0);
-     const cacheFresh = state.models.length > 0 && cacheAge < CONFIG.BCAI_MODELS_CACHE_TTL_MS;
+     const cacheMatchesDataSource = state.models.length > 0 && state.models.every(model =>
+         model.data_source === BCAI.DATA_SOURCES[0]
+     );
+     const cacheFresh = cacheMatchesDataSource && cacheAge < CONFIG.BCAI_MODELS_CACHE_TTL_MS;
 
      if (!force && cacheFresh) {
          const selection = resolveModelSelection(state.models, state);
@@ -175,9 +178,18 @@
          return { ...state, ...selection, fromCache: true };
      }
 
-     const models = await getBcaiModels();
+     let models;
+     try {
+         models = await getBcaiModels();
+     } catch (error) {
+         if (cacheMatchesDataSource) {
+             const selection = resolveModelSelection(state.models, state);
+             return { ...state, ...selection, fromCache: true, stale: true, refreshError: error.message };
+         }
+         throw error;
+     }
      if (!models.length) {
-         if (state.models.length) {
+         if (cacheMatchesDataSource) {
              const selection = resolveModelSelection(state.models, state);
              return { ...state, ...selection, fromCache: true, stale: true };
          }
@@ -215,26 +227,37 @@
  }
  
  async function checkSessions() {
-     const sites = [
-         { id: 'cairo', url: URLS.PRIMARY_ACPS },
-         { id: 'boeingai', url: BCAI.MODELS_ENDPOINT }
-     ];
-     
-     const checks = await Promise.all(sites.map(async (site) => {
-         try {
-             const res = await fetch(site.url, {
-                 method: 'GET',
-                 credentials: 'include',
-                 headers: { Accept: 'application/json, text/plain, */*' },
-                 cache: 'no-store'
-             });
-             const finalHost = new URL(res.url || site.url).hostname;
-             const passed = res.ok && finalHost === new URL(site.url).hostname;
-             return { id: site.id, passed, message: passed ? 'Accessible' : `HTTP ${res.status}`, finalUrl: res.url || site.url };
-         } catch (err) {
-             return { id: site.id, passed: false, message: 'Auth/Connection Error', finalUrl: site.url };
-         }
-     }));
+     const [cairo, boeingai] = await Promise.all([
+         (async () => {
+             try {
+                 const res = await fetch(URLS.PRIMARY_ACPS, {
+                     method: 'GET',
+                     credentials: 'include',
+                     headers: { Accept: 'application/json, text/plain, */*' },
+                     cache: 'no-store'
+                 });
+                 const finalHost = new URL(res.url || URLS.PRIMARY_ACPS).hostname;
+                 const passed = res.ok && finalHost === new URL(URLS.PRIMARY_ACPS).hostname;
+                 return { id: 'cairo', passed, message: passed ? 'Accessible' : `HTTP ${res.status}`, finalUrl: res.url || URLS.PRIMARY_ACPS };
+             } catch {
+                 return { id: 'cairo', passed: false, message: 'Auth/Connection Error', finalUrl: URLS.PRIMARY_ACPS };
+             }
+         })(),
+         getBcaiAuthorization()
+             .then(({ authorized }) => ({
+                 id: 'boeingai',
+                 passed: authorized,
+                 message: authorized ? 'Authorized' : 'Not authorized',
+                 finalUrl: BCAI.AUTHORIZED_ENDPOINT
+             }))
+             .catch(error => ({
+                 id: 'boeingai',
+                 passed: false,
+                 message: error.message || 'Auth/Connection Error',
+                 finalUrl: BCAI.AUTHORIZED_ENDPOINT
+             }))
+     ]);
+     const checks = [cairo, boeingai];
      return { success: true, prerequisites: { checks } };
  }
  

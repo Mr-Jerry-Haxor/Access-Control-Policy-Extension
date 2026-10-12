@@ -274,6 +274,7 @@ function renderModelDetails() {
 
     container.innerHTML = `
         <div class="model-detail-row"><strong>Model ID</strong><span>${escapeHtml(model.model_id)}</span></div>
+        <div class="model-detail-row"><strong>Data Source</strong><span>${escapeHtml(model.data_source || "Information Technology Command Media")}</span></div>
         <div class="model-detail-row"><strong>Context Window</strong><span>${escapeHtml(model.max_tokens || "N/A")}</span></div>
         <div class="model-detail-row"><strong>Default Response Tokens</strong><span>${escapeHtml(formatNumber(defaultTokens))}</span></div>
         <div class="model-detail-row"><strong>Maximum Response Tokens</strong><span>${escapeHtml(formatNumber(responseTokens))}</span></div>
@@ -297,9 +298,11 @@ function getSelectedModel() {
 function updateModelCacheStatus(response) {
     const fetchedAt = response.fetchedAt ? new Date(response.fetchedAt).toLocaleString() : "N/A";
     const source = response.fromCache ? "Loaded from local cache" : "Fetched from BCAI";
-    const stale = response.stale ? " Cache is stale because refresh failed." : "";
+    const stale = response.stale
+        ? ` Cache is stale because refresh failed.${response.refreshError ? ` ${response.refreshError}` : ""}`
+        : "";
     const selection = response.userSelectedModel ? "Using your selected model." : "Defaulting to the highest context window model.";
-    setModelStatus(`${source}. Last refreshed: ${fetchedAt}. ${selection}${stale}`);
+    setModelStatus(`${source}. Data source: Information Technology Command Media. Last refreshed: ${fetchedAt}. ${selection}${stale}`);
 }
 
 function setModelStatus(message) {

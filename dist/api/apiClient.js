@@ -3,7 +3,7 @@
  * Unified API client for Cairo and BCAI services.
  */
 
-import { URLS, BCAI } from '../utils/constants.js';
+import { URLS, BCAI, CONFIG } from '../utils/constants.js';
 import { fetchJson, postJson } from './requestManager.js';
 import { replaceTokens, logger } from '../utils/utils.js';
 
@@ -223,6 +223,43 @@ export async function getACPContext(assessmentId) {
 // BCAI API — AI Conversation via Tab Injection
 // ============================================================
 
+const RETRYABLE_BCAI_STATUSES = new Set([408, 425, 429, 500, 502, 503, 504]);
+
+function bcaiError(status, body, operation = 'request') {
+    const detail = parseBcaiErrorDetail(body);
+    const error = new Error(`BCAI ${operation} failed${status ? ` (HTTP ${status})` : ''}: ${detail}`);
+    error.name = 'BcaiRequestError';
+    error.status = Number(status) || 0;
+    error.retryable = !status || RETRYABLE_BCAI_STATUSES.has(Number(status));
+    return error;
+}
+
+function parseBcaiErrorDetail(body) {
+    const text = String(body || '').trim();
+    if (!text) return 'No error detail was returned.';
+    try {
+        const parsed = JSON.parse(text);
+        return String(parsed?.detail || parsed?.message || parsed?.error?.message || text).slice(0, 500);
+    } catch {
+        return text.slice(0, 500);
+    }
+}
+
+function timeoutSignal(externalSignal, timeoutMs = CONFIG.BCAI_REQUEST_TIMEOUT_MS) {
+    const controller = new AbortController();
+    const abortFromExternal = () => controller.abort(externalSignal?.reason);
+    if (externalSignal?.aborted) abortFromExternal();
+    else externalSignal?.addEventListener?.('abort', abortFromExternal, { once: true });
+    const timer = setTimeout(() => controller.abort(new DOMException('BCAI request timed out.', 'TimeoutError')), timeoutMs);
+    return {
+        signal: controller.signal,
+        cleanup() {
+            clearTimeout(timer);
+            externalSignal?.removeEventListener?.('abort', abortFromExternal);
+        }
+    };
+}
+
 async function getBcaiXsrfToken() {
     if (!globalThis.chrome?.cookies) return '';
 
@@ -264,7 +301,9 @@ async function fetchFromBcaiTab(endpoint, options = {}) {
 
     const results = await chrome.scripting.executeScript({
         target: { tabId: bcaiTab.id },
-        func: async (url, requestOptions) => {
+        func: async (url, requestOptions, timeoutMs) => {
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), timeoutMs);
             try {
                 const xsrfMeta = document.cookie
                     .split(';')
@@ -275,6 +314,7 @@ async function fetchFromBcaiTab(endpoint, options = {}) {
                 const resp = await fetch(url, {
                     credentials: 'include',
                     ...requestOptions,
+                    signal: controller.signal,
                     headers: {
                         'Accept': 'application/json, text/plain, */*',
                         ...(requestOptions.headers || {}),
@@ -288,16 +328,64 @@ async function fetchFromBcaiTab(endpoint, options = {}) {
                 }
                 return { error: false, text };
             } catch (e) {
-                return { error: true, status: 0, body: e.message };
+                return {
+                    error: true,
+                    status: 0,
+                    body: e?.name === 'AbortError' ? 'BCAI request timed out.' : e.message
+                };
+            } finally {
+                clearTimeout(timer);
             }
         },
-        args: [endpoint, options]
+        args: [endpoint, options, CONFIG.BCAI_REQUEST_TIMEOUT_MS]
     });
 
     const result = results?.[0]?.result;
     if (!result) throw new Error('BCAI tab injection returned no result.');
-    if (result.error) throw new Error(`BCAI Tab Error ${result.status}: ${result.body}`);
+    if (result.error) throw bcaiError(result.status, result.body, 'tab request');
     return result.text;
+}
+
+async function fetchBcaiJson(endpoint, options = {}, { signal } = {}) {
+    const timed = timeoutSignal(signal);
+    try {
+        const xsrfToken = await getBcaiXsrfToken();
+        const headers = {
+            'Accept': 'application/json, text/plain, */*',
+            ...(options.headers || {})
+        };
+        if (xsrfToken) headers['X-XSRF-TOKEN'] = xsrfToken;
+
+        const response = await fetch(endpoint, {
+            credentials: 'include',
+            ...options,
+            headers,
+            signal: timed.signal
+        });
+        const text = await response.text();
+        if (response.ok) return JSON.parse(text);
+
+        const error = bcaiError(response.status, text);
+        // A page-context request can recover cookie-bound 401/403 responses.
+        if (![401, 403].includes(response.status)) throw error;
+        logger.warn(`Direct BCAI request returned HTTP ${response.status}; trying the authenticated tab.`);
+    } catch (error) {
+        if (signal?.aborted) throw new DOMException('Operation cancelled.', 'AbortError');
+        if (timed.signal.aborted) throw bcaiError(0, 'BCAI request timed out.');
+        if (error?.name === 'BcaiRequestError') throw error;
+        logger.warn('Direct BCAI request was unavailable; trying the authenticated tab:', error.message);
+    } finally {
+        timed.cleanup();
+    }
+
+    if (signal?.aborted) throw new DOMException('Operation cancelled.', 'AbortError');
+    const text = await fetchFromBcaiTab(endpoint, options);
+    if (signal?.aborted) throw new DOMException('Operation cancelled.', 'AbortError');
+    try {
+        return JSON.parse(text);
+    } catch {
+        throw bcaiError(0, 'BCAI returned invalid JSON.');
+    }
 }
 
 function normalizeBcaiModel(model) {
@@ -329,32 +417,60 @@ function parseTokenLimit(value) {
 }
 
 export async function getBcaiModels() {
-    logger.info('Fetching BCAI models.');
+    logger.info(`Fetching BCAI models compatible with ${BCAI.DATA_SOURCES[0]}.`);
     try {
-        const xsrfToken = await getBcaiXsrfToken();
-        const headers = { 'Accept': 'application/json, text/plain, */*' };
-        if (xsrfToken) headers['X-XSRF-TOKEN'] = xsrfToken;
-
-        const response = await fetch(BCAI.MODELS_ENDPOINT, {
-            method: 'GET',
-            credentials: 'include',
-            headers
-        });
-
-        if (response.ok) {
-            const models = await response.json();
-            return Array.isArray(models) ? models.map(normalizeBcaiModel).filter(Boolean) : [];
-        }
-
-        const errorText = await response.text().catch(() => '');
-        logger.warn(`Direct BCAI models fetch failed (HTTP ${response.status}):`, errorText.slice(0, 200));
-    } catch (err) {
-        logger.warn('Direct BCAI models fetch failed with exception:', err.message);
+        const sources = await fetchBcaiJson(BCAI.DATA_SOURCES_ENDPOINT, { method: 'GET' });
+        const source = Array.isArray(sources)
+            ? sources.find(item => BCAI.DATA_SOURCES.includes(item?.name))
+            : null;
+        if (!source) throw new Error(`BCAI data source is unavailable: ${BCAI.DATA_SOURCES[0]}`);
+        const available = Array.isArray(source.available_models) ? source.available_models : [];
+        if (!available.length) throw new Error(`BCAI returned no models for ${source.name}.`);
+        return available.map(model => ({
+            ...normalizeBcaiModel(model),
+            data_source: source.name,
+            preferred_for_data_source: model?.model_id === source.preferred_model
+        })).filter(model => model.model_id);
+    } catch (sourceError) {
+        logger.warn('BCAI combined source/model discovery failed; intersecting the separate catalogs:', sourceError.message);
     }
 
-    const injectedText = await fetchFromBcaiTab(BCAI.MODELS_ENDPOINT, { method: 'GET' });
-    const models = JSON.parse(injectedText);
-    return Array.isArray(models) ? models.map(normalizeBcaiModel).filter(Boolean) : [];
+    const [sources, models] = await Promise.all([
+        fetchBcaiJson(BCAI.DATA_SOURCE_CATALOG_ENDPOINT, { method: 'GET' }),
+        fetchBcaiJson(BCAI.MODELS_ENDPOINT, { method: 'GET' })
+    ]);
+    const source = Array.isArray(sources)
+        ? sources.find(item => BCAI.DATA_SOURCES.includes(item?.name))
+        : null;
+    if (!source || !Array.isArray(source.models)) {
+        throw new Error(`BCAI data source is unavailable: ${BCAI.DATA_SOURCES[0]}`);
+    }
+    const compatibleIds = new Set(source.models);
+    return (Array.isArray(models) ? models : [])
+        .filter(model => compatibleIds.has(model?.model_id))
+        .map(model => ({
+            ...normalizeBcaiModel(model),
+            data_source: source.name,
+            preferred_for_data_source: model?.model_id === source.preferred_model
+        }))
+        .filter(model => model.model_id);
+}
+
+export async function getBcaiAuthorization() {
+    const value = await fetchBcaiJson(BCAI.AUTHORIZED_ENDPOINT, { method: 'GET' });
+    const authorized = value?.is_authorized === true || String(value?.is_authorized).toLowerCase() === 'true';
+    return { authorized };
+}
+
+export async function countBcaiTokens(input, model, { signal } = {}) {
+    const value = await fetchBcaiJson(BCAI.TOKEN_COUNT_ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ input, model })
+    }, { signal });
+    const count = Number(value?.token_count);
+    if (!Number.isFinite(count) || count < 0) throw bcaiError(0, 'BCAI returned an invalid token count.');
+    return count;
 }
 
 /**
@@ -366,9 +482,10 @@ export async function getBcaiModels() {
  * @returns {string} Raw streamed response text
  */
 export async function sendConversation(payload, { signal } = {}) {
-    // --- Validate payload: ensure messages have non-null text ---
-    if (payload.messages) {
-        payload.messages = payload.messages.map(msg => ({
+    // --- Validate payload: ensure Responses input has non-null text ---
+    const requestPayload = {
+        ...payload,
+        input: (payload.input || []).map(msg => ({
             ...msg,
             content: Array.isArray(msg.content)
                 ? msg.content.map(c => ({
@@ -376,11 +493,12 @@ export async function sendConversation(payload, { signal } = {}) {
                     text: (c.text != null && c.text !== '') ? c.text : '[empty]'
                 }))
                 : (typeof msg.content === 'string' ? msg.content : '[empty]')
-        }));
-    }
+        }))
+    };
 
     // --- Try Direct Fetch First ---
     logger.info('Attempting direct fetch to BCAI endpoint.');
+    const timed = timeoutSignal(signal);
     try {
         const xsrfToken = await getBcaiXsrfToken();
 
@@ -395,21 +513,25 @@ export async function sendConversation(payload, { signal } = {}) {
             method: 'POST',
             credentials: 'include',
             headers: headers,
-            body: JSON.stringify(payload),
-            signal
+            body: JSON.stringify(requestPayload),
+            signal: timed.signal
         });
 
         if (response.ok) {
             return await readResponseText(response);
-        } else {
-            const errorText = await response.text().catch(() => '');
-            logger.warn(`Direct fetch failed (HTTP ${response.status}):`, errorText.slice(0, 200));
-            // Will fall through to tab injection fallback
         }
+        const errorText = await response.text().catch(() => '');
+        if (![401, 403].includes(response.status)) {
+            throw bcaiError(response.status, errorText, 'conversation');
+        }
+        logger.warn(`Direct BCAI conversation returned HTTP ${response.status}; trying the authenticated tab.`);
     } catch (err) {
-        if (signal?.aborted || err?.name === 'AbortError') throw err;
-        logger.warn('Direct fetch failed with exception:', err.message);
-        // Will fall through to tab injection fallback
+        if (signal?.aborted) throw new DOMException('Operation cancelled.', 'AbortError');
+        if (timed.signal.aborted) throw bcaiError(0, 'BCAI conversation timed out.', 'conversation');
+        if (err?.name === 'BcaiRequestError') throw err;
+        logger.warn('Direct BCAI conversation was unavailable; trying the authenticated tab:', err.message);
+    } finally {
+        timed.cleanup();
     }
 
     // --- Fallback: Tab Injection ---
@@ -425,7 +547,9 @@ export async function sendConversation(payload, { signal } = {}) {
 
         const results = await chrome.scripting.executeScript({
             target: { tabId: bcaiTab.id },
-            func: async (endpoint, body) => {
+            func: async (endpoint, body, timeoutMs) => {
+                const controller = new AbortController();
+                const timer = setTimeout(() => controller.abort(), timeoutMs);
                 const readResponseText = async (response) => {
                     if (!response.body?.getReader) {
                         return await response.text();
@@ -460,7 +584,8 @@ export async function sendConversation(payload, { signal } = {}) {
                             'Accept': 'application/json, text/plain, */*',
                             ...(xsrfToken ? { 'X-XSRF-TOKEN': xsrfToken } : {})
                         },
-                        body: JSON.stringify(body)
+                        body: JSON.stringify(body),
+                        signal: controller.signal
                     });
 
                     const text = await readResponseText(resp);
@@ -469,10 +594,16 @@ export async function sendConversation(payload, { signal } = {}) {
                     }
                     return { error: false, text };
                 } catch (e) {
-                    return { error: true, status: 0, body: e.message };
+                    return {
+                        error: true,
+                        status: 0,
+                        body: e?.name === 'AbortError' ? 'BCAI conversation timed out.' : e.message
+                    };
+                } finally {
+                    clearTimeout(timer);
                 }
             },
-            args: [BCAI.ENDPOINT, payload]
+            args: [BCAI.ENDPOINT, requestPayload, CONFIG.BCAI_REQUEST_TIMEOUT_MS]
         });
 
         const result = results?.[0]?.result;
@@ -480,7 +611,7 @@ export async function sendConversation(payload, { signal } = {}) {
         if (!result) throw new Error('Tab injection returned no result.');
 
         if (result.error) {
-            throw new Error(`BCAI Tab Error ${result.status}: ${result.body}`);
+            throw bcaiError(result.status, result.body, 'conversation');
         }
 
         return result.text;

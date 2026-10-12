@@ -11,6 +11,7 @@ import {
 import { ACP_REVIEW_GUIDANCE } from '../knowledge/acpReviewGuidance.js';
 import { CHECKPOINT_EVIDENCE } from '../knowledge/checkpointEvidenceMap.js';
 import { formatRoleRowsForAi, getNpiRows, values } from '../checkpoints/helpers.js';
+import { sleep } from '../utils/utils.js';
 
 const STATES = new Set(['CORRECT', 'PARTIAL', 'INCORRECT', 'MISSING', 'NOT_APPLICABLE', 'NEEDS_VERIFICATION']);
 
@@ -214,7 +215,7 @@ async function requestFinding(prompt, identity, { session, signal }) {
     let lastError = null;
     for (let attempt = 1; attempt <= CONFIG.AI_RETRY_ATTEMPTS; attempt++) {
         try {
-            const parsed = extractJson(await sendPrompt(prompt, { session, signal }));
+            const parsed = extractJson(await sendPrompt(prompt, { session, signal, retries: 1 }));
             if (!parsed) throw new Error('BCAI returned unparseable review JSON.');
             const candidate = Array.isArray(parsed)
                 ? parsed[0]
@@ -223,6 +224,10 @@ async function requestFinding(prompt, identity, { session, signal }) {
         } catch (error) {
             if (signal?.aborted || error?.name === 'AbortError') throw error;
             lastError = error;
+            if (error?.retryable === false) break;
+            if (attempt < CONFIG.AI_RETRY_ATTEMPTS) {
+                await sleep(CONFIG.AI_RETRY_BASE_DELAY_MS * (2 ** (attempt - 1)));
+            }
         }
     }
     return normalizeFinding({}, identity, lastError?.message || 'BCAI review failed.');
