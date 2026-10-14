@@ -96,7 +96,9 @@ Checkpoint:  Do all of the roles have at least one Access Level listed as someth
 Note:  All of the Access Levels (Database, Server, and Application) cannot be answered ""None"".  No access could be provisioned for a role with no access to the Database, Server, or Application."
 
 
-ACP14	"ACP-AR1
+ACP14
+"""
+	"ACP-AR1
 Checkpoint:  If the ""Responsibility"" section of a role states what type of access a role has, does it match the appropriate Access Level (Database, Server, and Application) selection?
 Notes:  
 • For example, if the responsibility of a role states that the role has ""read"" (or synonym for ""read"") access to the application, then the ""Access to Application"" must have ""Read"" selected.  
@@ -108,7 +110,7 @@ Notes:
      • Admin - Full control, Administrative, Application Administrator, Configuration manager (for the app), Moderator / curator (in some apps)
      • Root - Superuser, UID=0 account, System Administrator (OS-level), Host Administrator, Local Administrator, Domain Administrator, Enterprise Administrator
 • Boeing guidance treats “local Administrator” and server administrator roles as the OS‑level privileged accounts that must be managed (e.g., via CyberArk, ADM/WS secondary privileged accounts, ANA/UPEP controls) and restricted to administration/maintenance only."
-
+"""
 
 ACP15	"ACP-AR1
 Checkpoint:  Are all of the server environments listed in CMDB also selected at least once in the environments selected in the access roles?

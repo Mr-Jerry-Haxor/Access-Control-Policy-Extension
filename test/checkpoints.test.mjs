@@ -13,10 +13,19 @@ import ACP5 from "../checkpoints/ACP5.js";
 import ACP6 from "../checkpoints/ACP6.js";
 import ACP7 from "../checkpoints/ACP7.js";
 import ACP13 from "../checkpoints/ACP13.js";
+import ACP14 from "../checkpoints/ACP14.js";
 import ACP15 from "../checkpoints/ACP15.js";
 import ACP16 from "../checkpoints/ACP16.js";
+import ACP17 from "../checkpoints/ACP17.js";
+import ACP18 from "../checkpoints/ACP18.js";
 import ACP19 from "../checkpoints/ACP19.js";
 import ACP23 from "../checkpoints/ACP23.js";
+import ACP24 from "../checkpoints/ACP24.js";
+import ACP25 from "../checkpoints/ACP25.js";
+import ACP26 from "../checkpoints/ACP26.js";
+import ACP27 from "../checkpoints/ACP27.js";
+import ACP28 from "../checkpoints/ACP28.js";
+import ACP29 from "../checkpoints/ACP29.js";
 
 function contextWithRoles(roleRows, supportingData = {}) {
     return {
@@ -55,10 +64,14 @@ test("Risk Profiler evidence requires both asset ID and asset name and uses last
     const answers = extractRiskProfilerAnswers([
         { alternateQuestionId: "CSIR-IPOwner", assessmentSurveyAnswerId: 1, answerOptions: [{ internalValue: "Non-Boeing" }] },
         { alternateQuestionId: "CSIR-IPOwner", assessmentSurveyAnswerId: 2, answerOptions: [{ internalValue: "Boeing" }] },
-        { alternateQuestionId: "CSIR-SvcAcct", answerOptions: [{ internalValue: "Yes" }] }
+        { alternateQuestionId: "CSIR-SvcAcct", answerOptions: [{ internalValue: "Yes" }] },
+        { alternateQuestionId: "CSIR-AppType", answerOptions: [{ internalValue: "Web application" }, { internalValue: "Client-Server" }] },
+        { alternateQuestionId: "CSIR-Database", answerOptions: [{ internalValue: "No" }] }
     ]);
     assert.equal(answers["CSIR-IPOwner"], "Boeing");
     assert.equal(answers["CSIR-SvcAcct"], "Yes");
+    assert.deepEqual(answers["CSIR-AppType"], ["Web application", "Client-Server"]);
+    assert.equal(answers["CSIR-Database"], "No");
 });
 
 test("ACP9 uses the exact Risk Profiler CSIR-IPOwner answer", async () => {
@@ -87,6 +100,74 @@ test("ACP16 compares ACP-NPI1 with the same Risk Profiler assessment answers", a
         riskProfiler: { status: "found", answers: { "CSIR-SvcAcct": "Yes" } }
     }));
     assert.equal(mismatch.status, "FAIL");
+});
+
+test("ACP17 uses Risk Profiler application type and database evidence", async () => {
+    const passResult = await ACP17.validate(contextWithRoles([], {
+        answers: { "ACP-NPI1": "Yes" },
+        questionTables: { "ACP-NPI1": { rows: [{ nonPersonIdentifier: "svc-app" }] } },
+        riskProfiler: {
+            status: "found",
+            assessmentId: 300,
+            answers: { "CSIR-AppType": ["Web application"], "CSIR-Database": "No" }
+        }
+    }));
+    assert.equal(passResult.status, "PASS");
+
+    const failResult = await ACP17.validate(contextWithRoles([], {
+        answers: { "ACP-NPI1": "Yes" },
+        riskProfiler: {
+            status: "found",
+            assessmentId: 300,
+            answers: { "CSIR-AppType": ["Desktop application"], "CSIR-Database": "Yes" }
+        }
+    }));
+    assert.equal(failResult.status, "FAIL");
+
+    const notApplicable = await ACP17.validate(contextWithRoles([], {
+        answers: { "ACP-NPI1": "No" },
+        riskProfiler: {
+            status: "found",
+            assessmentId: 300,
+            answers: { "CSIR-AppType": ["Desktop application"], "CSIR-Database": "No" }
+        }
+    }));
+    assert.equal(notApplicable.status, "N/A");
+
+    const review = await ACP17.validate(contextWithRoles([], {
+        answers: { "ACP-NPI1": "Yes" },
+        riskProfiler: { status: "found", assessmentId: 300, answers: { "CSIR-AppType": ["Desktop application"] } }
+    }));
+    assert.equal(review.status, "REVIEW");
+});
+
+test("ACP17, ACP18, and ACP19 are N/A when ACP-NPI1 is No", async () => {
+    const context = contextWithRoles([], { answers: { "ACP-NPI1": "No" } });
+    for (const checkpoint of [ACP17, ACP18, ACP19]) {
+        const result = await checkpoint.validate(context);
+        assert.equal(result.status, "N/A", checkpoint.id);
+        assert.match(result.message, /ACP-NPI1 is No/, checkpoint.id);
+    }
+});
+
+test("ACP18 asks AI for specific action-and-purpose Function descriptions", () => {
+    const prompt = ACP18.buildPrompt(contextWithRoles([], {
+        answers: { "ACP-NPI1": "Yes" },
+        questionTables: { "ACP-NPI1": { rows: [{
+            rowGroupNumber: "2",
+            nonPersonIdentifier: "svc-order-sync",
+            function: "Processes data",
+            nonPersonAccountOwner: "12345",
+            rawItems: [{ secret: "must-not-be-sent" }]
+        }] } }
+    }));
+    assert.match(prompt, /concrete action the account performs/);
+    assert.match(prompt, /application-specific purpose, system, resource, data flow, job, integration/);
+    assert.match(prompt, /The mere presence of an action verb is not sufficient/);
+    assert.match(prompt, /generic short descriptions/);
+    assert.match(prompt, /identify each deficient NPI/);
+    assert.match(prompt, /svc-order-sync/);
+    assert.doesNotMatch(prompt, /rawItems|must-not-be-sent/);
 });
 
 test("BCAI gpt-6-luna payload follows the HAR-confirmed Responses contract", () => {
@@ -289,6 +370,38 @@ test("ACP15 detects a missing CMDB server environment", async () => {
     assert.match(result.message, /test/i);
 });
 
+test("ACP15 maps detailed CMDB values to the nine selectable CAIRO environments", async () => {
+    const selected = [
+        "Business Unit Lab", "Cold Spare", "Development", "Disaster Recovery", "Install/Build",
+        "Lab General", "Pre-production", "Production", "Test"
+    ];
+    const result = await ACP15.validate(contextWithRoles(
+        [{ role: "Administrator", environment: [...selected, "Extra ACP Environment"] }],
+        { sisServers: [
+            { environment: "Business Unit Lab - North" },
+            { environment: "Cold Spare" },
+            { environment: "DEV / QA" },
+            { environment: "DR" },
+            { environment: "Install Build" },
+            { environment: "General Lab" },
+            { environment: "UAT / Staging" },
+            { environment: "Production - Primary" }
+        ] }
+    ));
+    assert.equal(result.status, "PASS");
+    assert.match(result.message, /Additional ACP environments are allowed/);
+});
+
+test("ACP15 reviews CMDB environments that have no selectable CAIRO mapping", async () => {
+    const result = await ACP15.validate(contextWithRoles(
+        [{ role: "Administrator", environment: ["Production"] }],
+        { sisServers: [{ environment: "Production" }, { environment: "Training" }, { environment: "Non-Production" }] }
+    ));
+    assert.equal(result.status, "REVIEW");
+    assert.match(result.message, /Training/);
+    assert.match(result.message, /Non-Production/);
+});
+
 test("ACP19 accepts active CED object responses for all NPI owners", async () => {
     const result = await ACP19.validate({
         getAnswerText: () => "Yes",
@@ -332,4 +445,42 @@ test("ACP10 asks AI to evaluate all same-row fields without requiring Applicatio
     assert.match(prompt, /do not require Admin access/);
     assert.match(prompt, /"accessToApplication": \[\s*"Read"/);
     assert.doesNotMatch(prompt, /rawItems/);
+});
+
+test("ACP14 asks AI to compare responsibility claims with the correct scoped access field", () => {
+    const prompt = ACP14.buildPrompt(contextWithRoles([{
+        role: "Server Administrator",
+        responsibility: "Performs local administrator maintenance on production hosts",
+        accessToDB: "None",
+        accessToServer: "Root",
+        accessToApplication: "None"
+    }]));
+    assert.match(prompt, /compare it only with the corresponding accessToDB, accessToServer, or accessToApplication/);
+    assert.match(prompt, /Read = read, view, read-only/);
+    assert.match(prompt, /Write = write, modify, read\/write/);
+    assert.match(prompt, /Elevated = elevated, privileged/);
+    assert.match(prompt, /Admin = admin, full control/);
+    assert.match(prompt, /Root = root, superuser, UID 0/);
+    assert.match(prompt, /local administrator and server administrator wording as OS-level privileged access/);
+    assert.match(prompt, /Return NA only when none/);
+    assert.match(prompt, /"accessToServer": \[\s*"Root"/);
+});
+
+test("ACP24 through ACP29 evaluate ACP-AI2 exceptions even when the primary process is missing", () => {
+    const exception = "The Service Reader role is provisioned automatically by the managed platform; the platform owner performs approval and removal under its documented control.";
+    const context = contextWithRoles([{ role: "Service Reader" }], {
+        answers: { "ACP-AI2": exception }
+    });
+    context.detail = {};
+
+    for (const checkpoint of [ACP24, ACP25, ACP26, ACP27, ACP28, ACP29]) {
+        const prompt = checkpoint.buildPrompt(context);
+        assert.ok(prompt, `${checkpoint.id} should evaluate an ACP-AI2-only exception`);
+        assert.match(prompt, /additionalInformationQuestion/);
+        assert.match(prompt, /ACP-AI2/);
+        assert.match(prompt, /managed platform/);
+        assert.match(prompt, /presence alone does not waive the checkpoint/);
+        assert.match(prompt, /role-specific exception excludes only the clearly named scope/);
+        assert.match(prompt, /Return NA only when a clear, specific, evidence-supported exception makes the entire checkpoint not applicable/);
+    }
 });

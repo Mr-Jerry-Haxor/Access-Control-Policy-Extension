@@ -7,7 +7,7 @@ const ACP19 = {
     type: "RULE",
     reviewPrompt: buildReviewPrompt({
         checkpointId: "ACP19",
-        requirement: "Every NPI owner is active at the time of ACP review.",
+        requirement: "When ACP-NPI1 is Yes, every NPI owner is active at the time of ACP review; ACP-NPI1 No is N/A.",
         targetQuestion: "ACP-NPI1 Non Person Account Owner",
         correction: "the NPI rows whose owner must be replaced or verified"
     }),

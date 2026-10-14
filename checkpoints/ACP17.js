@@ -1,4 +1,16 @@
-import { buildReviewPrompt, evidenceUnavailable, fail, getAnswerText, needsReview, pass, skip } from "./utils.js";
+import { buildReviewPrompt, fail, getAnswerText, needsReview, normalizeText, pass, skip } from "./utils.js";
+
+function answerValues(value) {
+    return (Array.isArray(value) ? value : [value])
+        .map(item => String(item ?? "").trim())
+        .filter(Boolean);
+}
+
+function isInternalWebApplication(appTypes) {
+    return appTypes.some(value =>
+        /\b(web application|web based application|internal web application|internal web|intranet application|intranet)\b/.test(normalizeText(value))
+    );
+}
 
 const ACP17 = {
     id: "ACP17",
@@ -7,26 +19,40 @@ const ACP17 = {
     type: "RULE",
     reviewPrompt: buildReviewPrompt({
         checkpointId: "ACP17",
-        requirement: "An internal web application or an application with a database lists at least one NPI in ACP-NPI1.",
-        targetQuestion: "ACP-NPI1",
+        requirement: "ACP17 is N/A when ACP-NPI1 is No; otherwise, when Risk Profiler identifies an internal web application or CSIR-Database is Yes, ACP-NPI1 lists at least one NPI.",
+        targetQuestion: "ACP-NPI1, Risk Profiler CSIR-AppType, and Risk Profiler CSIR-Database",
         correction: "the required NPI table row fields, or the evidenced N/A rationale"
     }),
     async validate(context) {
-        const databases = context.supportingData?.gsepDatabases;
-        const busapps = context.supportingData?.esatsBusapp;
-        if (evidenceUnavailable(databases) && evidenceUnavailable(busapps)) {
-            return needsReview(this.id, "Database and ESATS application-type evidence are unavailable.");
-        }
-        const hasDatabase = Array.isArray(databases) && databases.length > 0;
-        const appText = JSON.stringify(Array.isArray(busapps) ? busapps : []);
-        const internalWeb = /\b(web based|web application|internal web|intranet)\b/i.test(appText);
-        if (!hasDatabase && !internalWeb) return skip(this.id, "Available evidence does not identify an internal web application or database.");
         const answer = getAnswerText(context, "ACP-NPI1").trim();
+        if (/^no$/i.test(answer)) return skip(this.id, "ACP-NPI1 is No.");
+
+        const riskProfiler = context.supportingData?.riskProfiler;
+        if (riskProfiler?.status !== "found") {
+            return needsReview(this.id, "The matching Risk Profiler last assessment is unavailable for ACP17.");
+        }
+
+        const appTypes = answerValues(riskProfiler.answers?.["CSIR-AppType"]);
+        const databaseAnswer = normalizeText(riskProfiler.answers?.["CSIR-Database"]);
+        const internalWeb = isInternalWebApplication(appTypes);
+        const databaseKnown = databaseAnswer === "yes" || databaseAnswer === "no";
+        const hasDatabase = databaseAnswer === "yes";
+        const evidence = `Risk Profiler assessment ${riskProfiler.assessmentId || "unknown"}: CSIR-AppType is ${appTypes.join(", ") || "unanswered"}; CSIR-Database is ${databaseKnown ? riskProfiler.answers["CSIR-Database"] : "unanswered"}.`;
+
+        if (!internalWeb && !hasDatabase) {
+            if (!appTypes.length || !databaseKnown) {
+                return needsReview(this.id, `Risk Profiler evidence is incomplete; both conditions cannot be ruled out. ${evidence}`);
+            }
+            return skip(this.id, `Risk Profiler does not identify a Web Application and CSIR-Database is No. ${evidence}`);
+        }
+
         const rows = context.supportingData?.questionTables?.["ACP-NPI1"]?.rows || [];
-        if (!/^yes$/i.test(answer)) return fail(this.id, "The application is internal-web/database-backed, but ACP-NPI1 is not Yes.");
+        if (!/^(yes|no)$/i.test(answer)) {
+            return needsReview(this.id, `ACP-NPI1 does not contain a usable Yes/No answer. ${evidence}`);
+        }
         return rows.length
-            ? pass(this.id, `ACP-NPI1 is Yes and lists ${rows.length} NPI row(s).`)
-            : fail(this.id, "ACP-NPI1 is Yes, but no NPI rows are listed.");
+            ? pass(this.id, `ACP-NPI1 is Yes and lists ${rows.length} NPI row(s). ${evidence}`)
+            : fail(this.id, `ACP-NPI1 is Yes, but no NPI rows are listed. ${evidence}`);
     }
 };
 

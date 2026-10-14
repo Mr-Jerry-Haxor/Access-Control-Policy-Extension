@@ -7,6 +7,7 @@
  * checkpoints/utils.js
  */
  export { 
+    ADDITIONAL_INFORMATION_EXCEPTION_RULES,
     pass, 
     fail, 
     warning, 

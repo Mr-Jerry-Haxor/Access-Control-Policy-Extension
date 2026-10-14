@@ -106,9 +106,13 @@ function answerValues(answer) {
     return [...unique.values()];
 }
 
-/** Extracts the newest unambiguous value for each requested Risk Profiler question. */
-export function extractRiskProfilerAnswers(answers, questionIds = ['CSIR-IPOwner', 'CSIR-SvcAcct']) {
+/** Extracts the newest values for Risk Profiler questions used by ACP checkpoints. */
+export function extractRiskProfilerAnswers(
+    answers,
+    questionIds = ['CSIR-IPOwner', 'CSIR-SvcAcct', 'CSIR-AppType', 'CSIR-Database']
+) {
     const output = {};
+    const multiValueQuestions = new Set(['csir-apptype']);
     for (const questionId of questionIds) {
         const matches = (Array.isArray(answers) ? answers : [])
             .filter(answer => String(answer?.alternateQuestionId || '').trim().toLowerCase() === questionId.toLowerCase())
@@ -117,7 +121,11 @@ export function extractRiskProfilerAnswers(answers, questionIds = ['CSIR-IPOwner
                 Number(right?.assessmentSurveyAnswerId || 0) - Number(left?.assessmentSurveyAnswerId || 0)
             );
         const values = answerValues(matches[0]);
-        if (values.length === 1) output[questionId] = values[0];
+        if (multiValueQuestions.has(questionId.toLowerCase())) {
+            if (values.length) output[questionId] = values;
+        } else if (values.length === 1) {
+            output[questionId] = values[0];
+        }
     }
     return output;
 }

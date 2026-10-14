@@ -127,6 +127,8 @@ export function getAdditionalInformation(context) {
     return getAnswerText(context, "ACP-AI2");
 }
 
+export const ADDITIONAL_INFORMATION_EXCEPTION_RULES = "Consider ACP-AI2 Additional Information as supplemental evidence. It may supply missing process details or document an exception, but its presence alone does not waive the checkpoint. Accept an exception only when it clearly identifies the affected role, step, or requirement, gives an application-specific rationale, and explains the alternate process/control or why that requirement is genuinely not applicable. A role-specific exception excludes only the clearly named scope; evaluate every remaining role and requirement normally. Return NA only when a clear, specific, evidence-supported exception makes the entire checkpoint not applicable. Otherwise return PASS only when the primary process plus ACP-AI2 satisfies every applicable requirement. Return FAIL when a defect remains and ACP-AI2 is blank, vague, unrelated, contradictory, or unsupported. Return REVIEW when ACP-AI2 is relevant but ambiguous or requires unavailable external confirmation. Do not invent exceptions, approvals, actors, tools, controls, or process steps.";
+
 export function evidenceUnavailable(value) {
     return !!value?.error;
 }
