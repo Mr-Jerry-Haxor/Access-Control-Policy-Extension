@@ -1,16 +1,10 @@
-import { buildReviewPrompt, collectValuesByKey, fail, findAssessmentById, needsReview, pass } from "./utils.js";
+import { collectValuesByKey, fail, findAssessmentById, needsReview, pass } from "./utils.js";
 
 const ACP1 = {
     id: "ACP1",
     name: "ACP has both approvals",
     category: "Approvals",
     type: "RULE",
-    reviewPrompt: buildReviewPrompt({
-        checkpointId: "ACP1",
-        requirement: "The current ACP assessment has both required approvals.",
-        targetQuestion: "assessment review summary",
-        correction: "a short list of the missing or non-approved approval records; do not draft fictional approvals"
-    }),
     async validate(context) {
         const assessmentId = context?.assessment?.assessmentId || context?.detail?.assessmentId;
         if (!assessmentId) return needsReview(this.id, "Assessment ID is unavailable.");

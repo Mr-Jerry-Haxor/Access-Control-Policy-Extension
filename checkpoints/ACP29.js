@@ -1,4 +1,4 @@
-import { ADDITIONAL_INFORMATION_EXCEPTION_RULES, buildAiValidationPrompt, buildReviewPrompt, formatRoleRowsForAi, getAdditionalInformation, getAnswerText, getNpiRows, skip, values } from "./utils.js";
+import { ADDITIONAL_INFORMATION_EXCEPTION_RULES, buildAiValidationPrompt, formatRoleRowsForAi, getAdditionalInformation, getAnswerText, getNpiRows, skip, values } from "./utils.js";
 
 const REQUIREMENT = "ACP-RAP3 fully documents reconciliation and attestation with Who, Where, AS-IS generation, decision recording, approval/remediation workflow, every ACP-AR1 role, every NPI, and no BASIC references; SHOULD-BE generation is recommended.";
 
@@ -13,10 +13,6 @@ function formattedNpis(context) {
 
 const ACP29 = {
     id: "ACP29", name: "Access validation process completeness", category: "Access Validation", type: "AI",
-    reviewPrompt: buildReviewPrompt({
-        checkpointId: "ACP29", requirement: REQUIREMENT, targetQuestion: "ACP-RAP3 and ACP-AI2",
-        correction: "a complete numbered replacement process covering each exact role and NPI, preserving evidence and marking unknown locations, actors, and tools with placeholders"
-    }),
     buildPrompt(context) {
         const process = getAnswerText(context, "ACP-RAP3");
         const additionalInformation = getAdditionalInformation(context);

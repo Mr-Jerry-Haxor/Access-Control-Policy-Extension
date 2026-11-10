@@ -116,10 +116,8 @@
         <div class="card-title">Automation</div>
         <div class="automation-actions">
             <button id="validateBtn" class="btn-primary">Validate Selected</button>
-            <button id="reviewBtn" class="btn-secondary action-btn">Review Selected</button>
         </div>
         <button id="cancelValidationBtn" class="btn-danger hidden">Cancel Validation</button>
-        <button id="cancelReviewBtn" class="btn-danger hidden">Cancel Review</button>
         <div id="progressContainer" class="progress-panel hidden" role="status" aria-live="polite">
             <div id="progressText" class="progress-text">Starting...</div>
             <div class="progress-context" aria-live="polite">
@@ -136,51 +134,11 @@
         <div class="card-title-row">
             <span>Results</span>
         </div>
-        <div class="tab-list" role="tablist" aria-label="Result type">
-            <button id="validationResultsTab" class="tab-btn active" role="tab" aria-selected="true" aria-controls="validationResultsPanel" tabindex="0" data-results-tab="validation">Validation Results</button>
-            <button id="reviewResultsTab" class="tab-btn" role="tab" aria-selected="false" aria-controls="reviewResultsPanel" tabindex="-1" data-results-tab="review">Review Results</button>
-        </div>
-        <div id="validationResultsPanel" role="tabpanel" aria-labelledby="validationResultsTab">
+        <div id="validationResultsPanel">
             <div class="panel-actions"><button id="clearValidationResultsBtn" class="btn-secondary hidden">Clear Validation Results</button></div>
             <div id="resultsContainer" class="results-container"><div class="empty-state">No validation results yet.</div></div>
         </div>
-        <div id="reviewResultsPanel" class="hidden" role="tabpanel" aria-labelledby="reviewResultsTab">
-            <div class="panel-actions"><button id="clearReviewResultsBtn" class="btn-secondary hidden">Clear Review Results</button></div>
-            <div id="reviewResultsContainer" class="results-container"><div class="empty-state">No review results yet.</div></div>
-        </div>
     </section>
-</div>
-
-<div id="reviewNotesModal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="reviewNotesTitle">
-    <div class="modal-panel review-modal-panel" tabindex="-1">
-        <div class="modal-header">
-            <div><div class="eyebrow">ACP Review</div><h2 id="reviewNotesTitle">Review Notes</h2></div>
-            <button id="closeReviewNotesBtn" class="icon-btn small-icon-btn" title="Close">×</button>
-        </div>
-        <div class="review-toolbar">
-            <label class="visually-hidden" for="reviewSearchInput">Search review notes</label>
-            <input id="reviewSearchInput" class="input" type="search" placeholder="Search review notes..." autocomplete="off">
-            <label class="visually-hidden" for="reviewStateFilter">Filter review status</label>
-            <select id="reviewStateFilter" class="input">
-                <option value="">All statuses</option>
-                <option value="CORRECT">Correct</option>
-                <option value="PARTIAL">Partial</option>
-                <option value="INCORRECT">Incorrect</option>
-                <option value="MISSING">Missing</option>
-                <option value="NOT_APPLICABLE">Not applicable</option>
-                <option value="NEEDS_VERIFICATION">Needs verification</option>
-            </select>
-            <span id="reviewMatchCount" class="settings-muted" aria-live="polite"></span>
-        </div>
-        <div id="questionAnalysisPanel" class="analysis-list" aria-label="Question-wise analysis"></div>
-    </div>
-</div>
-
-<div id="newQuestionsModal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="newQuestionsTitle">
-    <div class="modal-panel" tabindex="-1">
-        <div class="modal-header"><h2 id="newQuestionsTitle">New Questions</h2><button id="closeNewQuestionsBtn" class="icon-btn small-icon-btn" title="Close">×</button></div>
-        <div id="newQuestionsContent" class="empty-state">New-question generation is reserved for the next implementation phase.</div>
-    </div>
 </div>
 
 <div id="settingsModal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">

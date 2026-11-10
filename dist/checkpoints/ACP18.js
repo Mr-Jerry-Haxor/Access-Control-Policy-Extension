@@ -1,4 +1,4 @@
-import { buildAiValidationPrompt, buildReviewPrompt, getAnswerText, getNpiRows, rowValues, skip } from "./utils.js";
+import { buildAiValidationPrompt, getAnswerText, getNpiRows, rowValues, skip } from "./utils.js";
 
 const REQUIREMENT = "When ACP-NPI1 is Yes, every NPI Function clearly explains the concrete action the identifier performs and what application-specific purpose, system, resource, or process it supports; ACP-NPI1 No is N/A.";
 
@@ -16,12 +16,6 @@ const ACP18 = {
     name: "NPI functions describe actions",
     category: "Non-Person Identifiers",
     type: "AI",
-    reviewPrompt: buildReviewPrompt({
-        checkpointId: "ACP18",
-        requirement: REQUIREMENT,
-        targetQuestion: "ACP-NPI1 Function",
-        correction: "a clear, account-specific Function description for each deficient NPI, using only known purpose facts"
-    }),
     buildPrompt(context) {
         const answer = getAnswerText(context, "ACP-NPI1").trim();
         if (/^no$/i.test(answer)) return null;

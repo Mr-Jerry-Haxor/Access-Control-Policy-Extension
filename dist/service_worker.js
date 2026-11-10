@@ -4,9 +4,8 @@
  */
 
  import { validateContext } from './core/validation.js';
- import { reviewContext, fineTuneSuggestion } from './core/review.js';
  import { buildContexts } from './core/context.js';
- import { saveResults, clearResults, saveReviewResult, clearReviewResults, getBcaiModelsState, saveBcaiModels, saveSelectedBcaiModel, getExtensionSurface, saveExtensionSurface } from './storage/storage.js';
+ import { saveResults, clearResults, getBcaiModelsState, saveBcaiModels, saveSelectedBcaiModel, getExtensionSurface, saveExtensionSurface } from './storage/storage.js';
  import { getACPList, getBcaiAuthorization, getBcaiModels } from './api/apiClient.js';
  import { BCAI, CONFIG, URLS } from './utils/constants.js';
 
@@ -31,32 +30,13 @@
              return true;
  
          case "START_VALIDATION":
-             if (activeOperations.has('validation') || activeOperations.has('review')) {
+             if (activeOperations.has('validation')) {
                  sendResponse({ started: false, error: 'Another automation operation is already running.' });
                  return false;
              }
              runValidationBatch(request.assessments);
              sendResponse({ started: true });
              return false;
-
-         case "START_REVIEW":
-             if (activeOperations.has('validation') || activeOperations.has('review')) {
-                 sendResponse({ started: false, error: 'Another automation operation is already running.' });
-                 return false;
-             }
-             runReviewBatch(request.assessments);
-             sendResponse({ started: true });
-             return false;
-
-         case "CANCEL_REVIEW":
-             cancelOperation('review').then(sendResponse);
-             return true;
-
-         case "FINE_TUNE_REVIEW_SUGGESTION":
-             fineTuneSuggestion({ finding: request.finding, instruction: request.instruction })
-                 .then(data => sendResponse({ success: true, ...data }))
-                 .catch(err => sendResponse({ success: false, error: err.message }));
-             return true;
 
          case "CANCEL_VALIDATION":
              cancelOperation('validation').then(sendResponse);
@@ -66,10 +46,6 @@
              clearResults().then(sendResponse);
              return true;
 
-         case "CLEAR_REVIEW_RESULTS":
-             clearReviewResults().then(sendResponse);
-             return true;
- 
          case "LOAD_ACPS":
              getACPList()
                  .then(data => sendResponse({ success: true, data }))
@@ -267,14 +243,13 @@
          operation.cancelled = true;
          operation.controller.abort();
      }
-     const prefix = mode === 'review' ? 'review' : 'validation';
-     const state = await chrome.storage.local.get(`${prefix}Progress`);
+     const state = await chrome.storage.local.get('validationProgress');
      await chrome.storage.local.set({
-         [`${prefix}Cancelled`]: true,
-         [`${prefix}Complete`]: true,
-         [`${prefix}Progress`]: {
-             ...(state[`${prefix}Progress`] || {}),
-             current: `${mode === 'review' ? 'Review' : 'Validation'} cancelled.`
+         validationCancelled: true,
+         validationComplete: true,
+         validationProgress: {
+             ...(state.validationProgress || {}),
+             current: 'Validation cancelled.'
          }
      });
      return { cancelled: true, active: !!operation };
@@ -282,58 +257,8 @@
 
  async function operationCancelled(mode, operation) {
      if (operation.cancelled || operation.controller.signal.aborted) return true;
-     const key = mode === 'review' ? 'reviewCancelled' : 'validationCancelled';
-     const state = await chrome.storage.local.get(key);
-     return !!state[key];
- }
-
- async function runReviewBatch(assessments) {
-     const total = assessments.length;
-     let completed = 0;
-     const startedAt = Date.now();
-     const operation = { controller: new AbortController(), cancelled: false };
-     activeOperations.set('review', operation);
-
-     try {
-         await clearReviewResults();
-         await chrome.storage.local.set({
-             reviewProgress: { completed: 0, total, mode: 'review', startedAt, current: 'Gathering ACP review context...' },
-             reviewComplete: false,
-             reviewError: null,
-             reviewCancelled: false
-         });
-         const contexts = await buildContexts(assessments);
-         const isCancelled = () => operationCancelled('review', operation);
-         if (await isCancelled()) {
-             await chrome.storage.local.set({ reviewComplete: true, reviewCancelled: true });
-             return;
-         }
-         await chrome.storage.local.set({ reviewProgress: { completed: 0, total, mode: 'review', startedAt, current: 'Reviewing selected question answers...' } });
-         await runWithConcurrency(contexts, CONFIG.MAX_CONCURRENT_APPLICATIONS, async context => {
-             if (await isCancelled()) return;
-             const assessmentId = context.assessment?.assessmentId || context.detail?.assessmentId;
-             const assessmentTitle = context.assessment?.title || context.detail?.assetName || `Assessment ${assessmentId}`;
-             await chrome.storage.local.set({ reviewProgress: { completed, total, mode: 'review', startedAt, current: `Reviewing assessment ${assessmentId}...` } });
-             const review = context.buildError
-                 ? { mode: 'review', generatedAt: new Date().toISOString(), questionAnalysis: [], newQuestions: [], error: context.buildError }
-                 : await reviewContext(context, isCancelled, current => chrome.storage.local.set({
-                     reviewProgress: { completed, total, mode: 'review', startedAt, current }
-                 }), { signal: operation.controller.signal });
-             if (await isCancelled()) return;
-             await saveReviewResult(assessmentId, review, assessmentTitle);
-             completed++;
-             await chrome.storage.local.set({
-                 reviewProgress: { completed, total, mode: 'review', startedAt, current: `Reviewed assessment ${assessmentId}` }
-             });
-         });
-         if (!operation.cancelled) await chrome.storage.local.set({ reviewComplete: true });
-     } catch (error) {
-         if (!operation.cancelled && error?.name !== 'AbortError') {
-             await chrome.storage.local.set({ reviewComplete: true, reviewError: error.message });
-         }
-     } finally {
-         if (activeOperations.get('review') === operation) activeOperations.delete('review');
-     }
+     const state = await chrome.storage.local.get('validationCancelled');
+     return !!state.validationCancelled;
  }
 
  async function runValidationBatch(assessments) {

@@ -1,4 +1,4 @@
-import { buildAiValidationPrompt, buildReviewPrompt, formatRoleRowsForAi, skip } from "./utils.js";
+import { buildAiValidationPrompt, formatRoleRowsForAi, skip } from "./utils.js";
 
 const REQUIREMENT = "Each ACP-AR1 role name is semantically consistent with every other field in the same role row.";
 
@@ -7,12 +7,6 @@ const ACP10 = {
     name: "Role name agrees with role fields",
     category: "Access Roles",
     type: "AI",
-    reviewPrompt: buildReviewPrompt({
-        checkpointId: "ACP10",
-        requirement: REQUIREMENT,
-        targetQuestion: "ACP-AR1",
-        correction: "exact role-name or field corrections for each conflicting row"
-    }),
     buildPrompt(context) {
         const roles = formatRoleRowsForAi(context);
         if (!roles.length) return null;

@@ -1,4 +1,4 @@
-import { buildReviewPrompt, evidenceUnavailable, fail, getRoleRows, needsReview, normalizeText, pass, rowValues, skip } from "./utils.js";
+import { evidenceUnavailable, fail, getRoleRows, needsReview, normalizeText, pass, rowValues, skip } from "./utils.js";
 
 const CAIRO_ENVIRONMENTS = [
     "Business Unit Lab",
@@ -47,12 +47,6 @@ const ACP15 = {
     name: "CMDB server environments represented in roles",
     category: "Access Roles",
     type: "RULE",
-    reviewPrompt: buildReviewPrompt({
-        checkpointId: "ACP15",
-        requirement: "Every CMDB server environment that maps to a selectable CAIRO Environment is selected in at least one ACP-AR1 role; additional ACP environments are allowed.",
-        targetQuestion: "ACP-AR1 Environment",
-        correction: "the missing selectable CAIRO Environment values, with unmappable CMDB values identified for review"
-    }),
     async validate(context) {
         const servers = context.supportingData?.sisServers;
         if (evidenceUnavailable(servers)) return needsReview(this.id, "The CMDB/SIS server response is unavailable.");

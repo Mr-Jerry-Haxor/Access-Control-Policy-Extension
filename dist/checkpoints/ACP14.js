@@ -1,4 +1,4 @@
-import { buildAiValidationPrompt, buildReviewPrompt, formatRoleRowsForAi, skip } from "./utils.js";
+import { buildAiValidationPrompt, formatRoleRowsForAi, skip } from "./utils.js";
 
 const REQUIREMENT = "When an ACP-AR1 Responsibility states a Database, Server, or Application access level, the statement matches the corresponding selected access level using the approved synonyms.";
 
@@ -7,12 +7,6 @@ const ACP14 = {
     name: "Responsibility access statements match access levels",
     category: "Access Roles",
     type: "AI",
-    reviewPrompt: buildReviewPrompt({
-        checkpointId: "ACP14",
-        requirement: REQUIREMENT,
-        targetQuestion: "ACP-AR1 Responsibility and access-level fields",
-        correction: "the exact Responsibility or access-level correction for each mismatched role and scope"
-    }),
     buildPrompt(context) {
         const roles = formatRoleRowsForAi(context);
         if (!roles.length) return null;

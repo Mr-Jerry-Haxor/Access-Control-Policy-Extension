@@ -1,4 +1,4 @@
-import { buildReviewPrompt, fail, getRoleRows, needsReview, normalizeText, pass, roleLabel, rowValues, skip } from "./utils.js";
+import { fail, getRoleRows, needsReview, normalizeText, pass, roleLabel, rowValues, skip } from "./utils.js";
 
 function containsAny(text, terms) {
     return terms.some(term => text.includes(term));
@@ -9,12 +9,6 @@ const ACP12 = {
     name: "Authorized entity agrees with person status and type",
     category: "Access Roles",
     type: "RULE",
-    reviewPrompt: buildReviewPrompt({
-        checkpointId: "ACP12",
-        requirement: "Authorized Entity and other ACP statements do not conflict with each role's Person Status or Person Type.",
-        targetQuestion: "ACP-AR1 and related ACP text",
-        correction: "the exact conflicting fields and a minimally changed corrected value"
-    }),
     async validate(context) {
         const rows = getRoleRows(context);
         if (!rows.length) return needsReview(this.id, "ACP-AR1 role rows are unavailable.");

@@ -1,6 +1,5 @@
 import {
     buildAiValidationPrompt,
-    buildReviewPrompt,
     evidenceUnavailable,
     fail,
     formatRoleRowsForAi,
@@ -18,12 +17,6 @@ const ACP7 = {
     name: "Tier 2/3 support role represented",
     category: "Access Roles",
     type: "RULE",
-    reviewPrompt: buildReviewPrompt({
-        checkpointId: "ACP7",
-        requirement: REQUIREMENT,
-        targetQuestion: "ACP-AR1 and ACP-AI2",
-        correction: "the missing application-support role fields or a clear application-specific ACP-AI2 exception rationale"
-    }),
     buildFailurePrompt(context) {
         return buildAiValidationPrompt({
             checkpointId: this.id,

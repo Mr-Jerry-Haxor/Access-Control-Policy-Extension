@@ -1,4 +1,4 @@
-import { buildAiValidationPrompt, buildReviewPrompt, formatRoleRowsForAi, getAnswerText, skip } from "./utils.js";
+import { buildAiValidationPrompt, formatRoleRowsForAi, getAnswerText, skip } from "./utils.js";
 
 const REQUIREMENT = "Every ACP-AR1 role allowing Non-US Persons access to export-controlled data other than NLR has a corresponding ACP-EXPORT-1 ICP entry that does not conflict with that role.";
 
@@ -7,12 +7,6 @@ const ACP21 = {
     name: "Non-US export roles have corresponding ICP entries",
     category: "Export Compliance",
     type: "AI",
-    reviewPrompt: buildReviewPrompt({
-        checkpointId: "ACP21",
-        requirement: REQUIREMENT,
-        targetQuestion: "ACP-AR1 and ACP-EXPORT-1",
-        correction: "a role-by-role list of missing or conflicting ICP fields without inventing authorization data"
-    }),
     buildPrompt(context) {
         const roles = formatRoleRowsForAi(context);
         if (!roles.length) return null;

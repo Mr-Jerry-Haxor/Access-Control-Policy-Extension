@@ -1,4 +1,4 @@
-import { buildAiValidationPrompt, buildReviewPrompt, formatRoleRowsForAi, getAdditionalInformation, skip } from "./utils.js";
+import { buildAiValidationPrompt, formatRoleRowsForAi, getAdditionalInformation, skip } from "./utils.js";
 
 const REQUIREMENT = "For each role with license-restricted non-U.S. export data, Authorized Entity states the allowed countries; any different-country or U.S.-Person access has a GTC authorization in Additional Information.";
 
@@ -7,12 +7,6 @@ const ACP22 = {
     name: "License-restricted country and authorization rules",
     category: "Export Compliance",
     type: "AI",
-    reviewPrompt: buildReviewPrompt({
-        checkpointId: "ACP22",
-        requirement: REQUIREMENT,
-        targetQuestion: "ACP-AR1 Authorized Entity and ACP-AI2",
-        correction: "the missing country restriction or authorization reference for each applicable role, with placeholders for unavailable GTC facts"
-    }),
     buildPrompt(context) {
         const roles = formatRoleRowsForAi(context);
         if (!roles.length) return null;

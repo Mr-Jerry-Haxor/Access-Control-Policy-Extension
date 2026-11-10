@@ -1,4 +1,4 @@
-import { buildReviewPrompt, evidenceUnavailable, fail, getCedRecord, getRoleRows, needsReview, normalizeText, pass, rowValues, skip } from "./utils.js";
+import { evidenceUnavailable, fail, getCedRecord, getRoleRows, needsReview, normalizeText, pass, rowValues, skip } from "./utils.js";
 
 function collectDbaIds(databases) {
     const ids = new Set();
@@ -24,12 +24,6 @@ const ACP6 = {
     name: "DBA person type matches CMDB DBA",
     category: "Access Roles",
     type: "RULE",
-    reviewPrompt: buildReviewPrompt({
-        checkpointId: "ACP6",
-        requirement: "The DBA role Person Type matches at least one DBA associated with the application in CMDB/GSEP.",
-        targetQuestion: "ACP-AR1",
-        correction: "the evidenced DBA Person Type correction without exposing unnecessary identity details"
-    }),
     async validate(context) {
         const databases = context.supportingData?.gsepDatabases;
         if (evidenceUnavailable(databases)) return needsReview(this.id, "The CMDB/GSEP database response is unavailable.");

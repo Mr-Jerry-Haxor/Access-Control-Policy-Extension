@@ -1,16 +1,10 @@
-import { buildReviewPrompt, fail, hasRoleMatching, needsReview, normalizeText, pass, skip } from "./utils.js";
+import { fail, hasRoleMatching, needsReview, normalizeText, pass, skip } from "./utils.js";
 
 const ACP9 = {
     id: "ACP9",
     name: "Boeing-owned application has developer role",
     category: "Access Roles",
     type: "RULE",
-    reviewPrompt: buildReviewPrompt({
-        checkpointId: "ACP9",
-        requirement: "When Risk Profiler CSIR-IPOwner is Boeing, ACP-AR1 contains a developer role.",
-        targetQuestion: "ACP-AR1",
-        correction: "the missing developer role fields or the evidenced N/A rationale"
-    }),
     async validate(context) {
         const riskProfiler = context.supportingData?.riskProfiler;
         const ipOwner = riskProfiler?.answers?.["CSIR-IPOwner"];

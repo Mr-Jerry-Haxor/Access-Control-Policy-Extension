@@ -164,12 +164,6 @@ Return JSON only with exactly these keys:
 Do not invent facts. PASS only when every required element is evidenced. FAIL only when evidence proves a defect. Use NA only when an explicit not-applicable condition is proved. Use REVIEW when authoritative evidence is missing or ambiguous.`;
 }
 
-export function buildReviewPrompt({ checkpointId, requirement, targetQuestion, correction }) {
-    return `Review ${checkpointId} against this requirement only: ${requirement}
-Target CAIRO question/section: ${targetQuestion}.
-Identify each satisfied element, each failed or missing element, and the exact evidence for both. Then produce ${correction}. Preserve verified values exactly. Use [PLACEHOLDER: field needed] for missing facts. Do not add generic policy language, people, systems, URLs, identifiers, approvals, countries, roles, or procedures not present in evidence. Keep the response crisp, application-specific, and directly usable.`;
-}
-
 export function hasRoleMatching(context, patterns) {
     const regexes = asArray(patterns).map(pattern => pattern instanceof RegExp ? pattern : new RegExp(pattern, "i"));
     return getRoleNames(context).some(role => regexes.some(regex => regex.test(String(role))));

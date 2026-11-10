@@ -1,16 +1,10 @@
-import { buildReviewPrompt, fail, getRoleRows, needsReview, pass, roleLabel, rowValues, skip } from "./utils.js";
+import { fail, getRoleRows, needsReview, pass, roleLabel, rowValues, skip } from "./utils.js";
 
 const ACP23 = {
     id: "ACP23",
     name: "Non-US roles exclude undetermined U.S. export type",
     category: "Export Compliance",
     type: "RULE",
-    reviewPrompt: buildReviewPrompt({
-        checkpointId: "ACP23",
-        requirement: "No ACP-AR1 role with Person Status Non-US Person selects US Export - Not Yet Determined.",
-        targetQuestion: "ACP-AR1",
-        correction: "the exact conflicting role rows and Data Type selection to resolve"
-    }),
     async validate(context) {
         const rows = getRoleRows(context);
         if (!rows.length) return needsReview(this.id, "ACP-AR1 role rows are unavailable.");

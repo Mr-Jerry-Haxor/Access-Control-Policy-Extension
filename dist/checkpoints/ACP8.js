@@ -1,4 +1,4 @@
-import { buildAiValidationPrompt, buildReviewPrompt, formatRoleRowsForAi, getAdditionalInformation, skip } from "./utils.js";
+import { buildAiValidationPrompt, formatRoleRowsForAi, getAdditionalInformation, skip } from "./utils.js";
 
 const REQUIREMENT = "Each ACP-AR1 role has action-oriented responsibilities commensurate with its title; separately defined ESATS roles remain separate, and Data Solutions DBA wording is used when applicable.";
 
@@ -7,12 +7,6 @@ const ACP8 = {
     name: "Role responsibilities are complete and commensurate",
     category: "Access Roles",
     type: "AI",
-    reviewPrompt: buildReviewPrompt({
-        checkpointId: "ACP8",
-        requirement: REQUIREMENT,
-        targetQuestion: "ACP-AR1",
-        correction: "a complete corrected Responsibility value for each deficient role row"
-    }),
     buildPrompt(context) {
         const roles = formatRoleRowsForAi(context);
         if (!roles.length) return null;

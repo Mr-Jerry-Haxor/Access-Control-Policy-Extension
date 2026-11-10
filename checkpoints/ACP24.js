@@ -1,13 +1,9 @@
-import { ADDITIONAL_INFORMATION_EXCEPTION_RULES, buildAiValidationPrompt, buildReviewPrompt, formatRoleRowsForAi, getAdditionalInformation, getAnswerText, skip } from "./utils.js";
+import { ADDITIONAL_INFORMATION_EXCEPTION_RULES, buildAiValidationPrompt, formatRoleRowsForAi, getAdditionalInformation, getAnswerText, skip } from "./utils.js";
 
 const REQUIREMENT = "The Account Request process gives step-by-step Who, What, and How instructions for every ACP-AR1 role and does not conflict with the role definitions.";
 
 const ACP24 = {
     id: "ACP24", name: "Account request process completeness", category: "Request, Modify, Removal", type: "AI",
-    reviewPrompt: buildReviewPrompt({
-        checkpointId: "ACP24", requirement: REQUIREMENT, targetQuestion: "ACP-RAP1 request process and ACP-AI2",
-        correction: "a complete numbered Request subsection covering every exact role, using placeholders only for missing actors or tools"
-    }),
     buildPrompt(context) {
         const process = getAnswerText(context, "ACP-RAP1");
         const additionalInformation = getAdditionalInformation(context);

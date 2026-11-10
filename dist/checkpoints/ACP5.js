@@ -1,6 +1,5 @@
 import {
     buildAiValidationPrompt,
-    buildReviewPrompt,
     evidenceUnavailable,
     fail,
     formatRoleRowsForAi,
@@ -18,12 +17,6 @@ const ACP5 = {
     name: "Database application has a DBA role",
     category: "Access Roles",
     type: "RULE",
-    reviewPrompt: buildReviewPrompt({
-        checkpointId: "ACP5",
-        requirement: REQUIREMENT,
-        targetQuestion: "ACP-AR1 and ACP-AI2",
-        correction: "the missing DBA role fields, or a clear application-specific ACP-AI2 rationale"
-    }),
     buildFailurePrompt(context) {
         return buildAiValidationPrompt({
             checkpointId: this.id,

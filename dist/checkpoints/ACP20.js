@@ -1,4 +1,4 @@
-import { buildReviewPrompt, fail, formatRoleRowsForAi, getAnswerText, needsReview, skip } from "./utils.js";
+import { fail, formatRoleRowsForAi, getAnswerText, needsReview, skip } from "./utils.js";
 
 function controlledNonUsRoles(context) {
     return formatRoleRowsForAi(context).filter(row =>
@@ -12,12 +12,6 @@ const ACP20 = {
     name: "ICP data matches current authorization",
     category: "Export Compliance",
     type: "RULE",
-    reviewPrompt: buildReviewPrompt({
-        checkpointId: "ACP20",
-        requirement: "For licensed export data accessible to Non-US Persons, the ICP number and all ACP-EXPORT-1 fields match the current ICP.",
-        targetQuestion: "ACP-EXPORT-1",
-        correction: "the exact missing or mismatched ICP fields; never fabricate an ICP identifier"
-    }),
     async validate(context) {
         const roles = controlledNonUsRoles(context);
         const explicitNonUs = /^yes$/i.test(getAnswerText(context, "ACP-EXPORT-NON-US").trim());

@@ -1,4 +1,4 @@
-import { buildAiValidationPrompt, buildReviewPrompt, formatRoleRowsForAi, getAdditionalInformation, skip } from "./utils.js";
+import { buildAiValidationPrompt, formatRoleRowsForAi, getAdditionalInformation, skip } from "./utils.js";
 
 const REQUIREMENT = "Every ACP-AR1 role has an Authorized Entity that defines an eligible group without circular role-name references or authentication-only criteria and does not conflict with Risk Profiler CSIR-PersonClass.";
 
@@ -7,12 +7,6 @@ const ACP11 = {
     name: "Authorized entities are definable and consistent",
     category: "Access Roles",
     type: "AI",
-    reviewPrompt: buildReviewPrompt({
-        checkpointId: "ACP11",
-        requirement: REQUIREMENT,
-        targetQuestion: "ACP-AR1 Authorized Entity",
-        correction: "a concise, evidence-supported Authorized Entity replacement for each deficient row"
-    }),
     buildPrompt(context) {
         const roles = formatRoleRowsForAi(context);
         if (!roles.length) return null;

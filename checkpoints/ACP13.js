@@ -1,16 +1,10 @@
-import { buildReviewPrompt, fail, getRoleRows, needsReview, normalizeText, pass, roleLabel, rowValues } from "./utils.js";
+import { fail, getRoleRows, needsReview, normalizeText, pass, roleLabel, rowValues } from "./utils.js";
 
 const ACP13 = {
     id: "ACP13",
     name: "Every role has an access level",
     category: "Access Roles",
     type: "RULE",
-    reviewPrompt: buildReviewPrompt({
-        checkpointId: "ACP13",
-        requirement: "Every role has at least one Database, Server, or Application access level other than None.",
-        targetQuestion: "ACP-AR1",
-        correction: "the missing access-level field for each deficient role"
-    }),
     async validate(context) {
         const rows = getRoleRows(context);
         if (!rows.length) return needsReview(this.id, "ACP-AR1 role rows are unavailable.");

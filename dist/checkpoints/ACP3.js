@@ -1,4 +1,4 @@
-import { buildAiValidationPrompt, buildReviewPrompt, formatRoleRowsForAi, getAnswerText, skip } from "./utils.js";
+import { buildAiValidationPrompt, formatRoleRowsForAi, getAnswerText, skip } from "./utils.js";
 
 const REQUIREMENT = "Every ACP-AR1 role must be named and have a process defined in the Request, Approval, and Removal portions of the ACP.";
 
@@ -7,12 +7,6 @@ const ACP3 = {
     name: "Role coverage in request, approval, and removal",
     category: "Access Roles",
     type: "AI",
-    reviewPrompt: buildReviewPrompt({
-        checkpointId: "ACP3",
-        requirement: REQUIREMENT,
-        targetQuestion: "ACP-AR1, ACP-RAP1, and ACP-RAP2",
-        correction: "precise missing process steps grouped by exact role name"
-    }),
     buildPrompt(context) {
         const roles = formatRoleRowsForAi(context);
         if (!roles.length) return null;

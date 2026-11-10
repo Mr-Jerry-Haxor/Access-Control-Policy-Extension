@@ -1,4 +1,4 @@
-import { buildReviewPrompt, fail, getAnswerText, needsReview, normalizeText, pass, skip } from "./utils.js";
+import { fail, getAnswerText, needsReview, normalizeText, pass, skip } from "./utils.js";
 
 function answerValues(value) {
     return (Array.isArray(value) ? value : [value])
@@ -17,12 +17,6 @@ const ACP17 = {
     name: "Internal web or database application has an NPI",
     category: "Non-Person Identifiers",
     type: "RULE",
-    reviewPrompt: buildReviewPrompt({
-        checkpointId: "ACP17",
-        requirement: "ACP17 is N/A when ACP-NPI1 is No; otherwise, when Risk Profiler identifies an internal web application or CSIR-Database is Yes, ACP-NPI1 lists at least one NPI.",
-        targetQuestion: "ACP-NPI1, Risk Profiler CSIR-AppType, and Risk Profiler CSIR-Database",
-        correction: "the required NPI table row fields, or the evidenced N/A rationale"
-    }),
     async validate(context) {
         const answer = getAnswerText(context, "ACP-NPI1").trim();
         if (/^no$/i.test(answer)) return skip(this.id, "ACP-NPI1 is No.");

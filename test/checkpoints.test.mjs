@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { access, readFile } from "node:fs/promises";
 
 import { CHECKPOINTS } from "../core/checkpoint.js";
 import { BCAI, URLS } from "../utils/constants.js";
@@ -40,7 +41,21 @@ test("registry follows the authoritative checkpoint order", () => {
     assert.deepEqual(CHECKPOINTS.map(checkpoint => checkpoint.id), expected);
     assert.equal(CHECKPOINTS.length, 29);
     assert.ok(CHECKPOINTS.filter(checkpoint => checkpoint.type === "RULE").length > CHECKPOINTS.filter(checkpoint => checkpoint.type === "AI").length);
-    assert.equal(new Set(CHECKPOINTS.map(checkpoint => checkpoint.reviewPrompt)).size, CHECKPOINTS.length);
+});
+
+test("review workflow is absent and checkpoints expose validation only", async () => {
+    const files = await Promise.all([
+        "../service_worker.js",
+        "../popup/popup.html",
+        "../popup/popup.js",
+        "../popup/popup.css",
+        "../storage/storage.js",
+        "../utils/constants.js"
+    ].map(relativePath => readFile(new URL(relativePath, import.meta.url), "utf8")));
+    const source = files.join("\n");
+    assert.doesNotMatch(source, /START_REVIEW|CANCEL_REVIEW|FINE_TUNE_REVIEW|reviewResults|reviewBtn|reviewNotesModal|review-modal|fine-tune|suggested-answer|REVIEW_PROMPTS/);
+    assert.ok(CHECKPOINTS.every(checkpoint => !("reviewPrompt" in checkpoint)));
+    await assert.rejects(access(new URL("../core/review.js", import.meta.url)));
 });
 
 test("HAR-confirmed node-api routes are configured", () => {

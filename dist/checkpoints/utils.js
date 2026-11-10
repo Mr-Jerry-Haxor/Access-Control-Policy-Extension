@@ -33,7 +33,6 @@
     getCedRecord,
     getAssetLabels,
     buildAiValidationPrompt,
-    buildReviewPrompt,
     hasRoleMatching,
     hasAnyLabel,
     findAssessmentById,  // Add this

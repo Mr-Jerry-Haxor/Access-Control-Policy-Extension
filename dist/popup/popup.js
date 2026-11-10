@@ -9,10 +9,7 @@ import {
     getSelectedAcps,
     saveSelectedAcps,
     getAllResults,
-    getAllReviewResults,
-    saveReviewResult,
     clearResults,
-    clearReviewResults,
     getStartupBehavior,
     saveStartupBehavior,
     getExtensionSurface
@@ -26,9 +23,6 @@ let bcaiModels = [];
 let selectedModelId = null;
 let startupBehavior = 'restoreCached';
 let extensionSurface = 'popup';
-let activeReviewResult = null;
-let activeReviewAssessmentId = null;
-let activeReviewTitle = null;
 let lastFocusedElement = null;
 let noticeTimer = null;
 let automationBusy = false;
@@ -78,22 +72,10 @@ function attachEvents() {
     $("selectAllBtn").addEventListener("click", handleSelectAll);
     $("clearSelectionBtn").addEventListener("click", handleClearSelection);
     $("validateBtn").addEventListener("click", startValidation);
-    $("reviewBtn").addEventListener("click", startReview);
     $("cancelValidationBtn").addEventListener("click", cancelValidation);
-    $("cancelReviewBtn").addEventListener("click", cancelReview);
     $("clearFiltersBtn").addEventListener("click", clearFilters);
     $("clearValidationResultsBtn").addEventListener("click", clearValidationResultsAndUI);
-    $("clearReviewResultsBtn").addEventListener("click", clearReviewResultsAndUI);
-    $("closeReviewNotesBtn").addEventListener("click", closeReviewNotes);
-    $("closeNewQuestionsBtn").addEventListener("click", () => closeModal($("newQuestionsModal")));
-    $("reviewSearchInput").addEventListener("input", renderActiveReviewAnalysis);
-    $("reviewStateFilter").addEventListener("change", renderActiveReviewAnalysis);
-    document.querySelectorAll('[data-results-tab]').forEach(button => button.addEventListener('click', switchResultsTab));
-    document.querySelectorAll('[role="tablist"]').forEach(tabList => tabList.addEventListener('keydown', handleTabKeydown));
     document.addEventListener('keydown', handleGlobalKeydown);
-    [$("reviewNotesModal"), $("newQuestionsModal")].forEach(modal => modal.addEventListener('click', event => {
-        if (event.target === modal) closeModal(modal);
-    }));
 
     $("searchInput").addEventListener("input", applyFilters);
     $("regexMode").addEventListener("change", applyFilters);
@@ -367,7 +349,6 @@ function renderAssessments() {
 function updateSelectedCount() {
     $("selectedCount").textContent = `${selectedIds.length} Selected`;
     $("validateBtn").disabled = selectedIds.length === 0;
-    $("reviewBtn").disabled = selectedIds.length === 0;
     $("clearSelectionBtn").disabled = selectedIds.length === 0;
 }
 
@@ -406,7 +387,7 @@ function renderResults(resultsMap) {
         const pass = checkpoints.filter(r => r.status === 'PASS').length;
         const fail = checkpoints.filter(r => r.status === 'FAIL').length;
         const errors = checkpoints.filter(r => r.status === 'ERROR').length;
-        const review = checkpoints.filter(r => r.status === 'REVIEW').length;
+        const needsVerification = checkpoints.filter(r => r.status === 'REVIEW').length;
         const na = checkpoints.filter(r => r.status === 'N/A').length;
         const total = checkpoints.length;
         const title = data.title || `Assessment ${id}`;
@@ -433,7 +414,7 @@ function renderResults(resultsMap) {
                 <span style="font-size:12px;color:#1f6b3a;">✓ ${pass} Pass</span>
                 <span style="font-size:12px;color:#7a1b1b;">✗ ${fail} Fail</span>
                 ${errors > 0 ? `<span style="font-size:12px;color:#7a3a00;">⚠ ${errors} Error</span>` : ''}
-                ${review > 0 ? `<span style="font-size:12px;color:#6b4a00;">! ${review} Review</span>` : ''}
+                ${needsVerification > 0 ? `<span style="font-size:12px;color:#6b4a00;">! ${needsVerification} Verify</span>` : ''}
                 <span style="font-size:12px;color:#475569;">– ${na} N/A</span>
             </div>
             <div style="margin-top:10px; border:1px solid #e8edf5; border-radius:8px; overflow:hidden;">
@@ -500,304 +481,6 @@ function renderResults(resultsMap) {
     });
 }
 
-function renderReviewResults(resultsMap) {
-    const container = $("reviewResultsContainer");
-    container.innerHTML = "";
-    if (!resultsMap || !Object.keys(resultsMap).length) {
-        container.innerHTML = '<div class="empty-state">No review results yet.</div>';
-        $("clearReviewResultsBtn").classList.add("hidden");
-        return;
-    }
-    $("clearReviewResultsBtn").classList.remove("hidden");
-    for (const [id, data] of Object.entries(resultsMap)) {
-        const summary = data.review?.summary || {};
-        const questionStates = summary.questionStates || {};
-        const card = document.createElement('div');
-        card.className = 'result-card';
-        card.innerHTML = `
-            <div class="result-header"><div><strong>${escapeHtml(data.title || `Assessment ${id}`)}</strong><div class="asset-sub">Assessment ID: ${escapeHtml(id)}</div></div><span class="score-pill">${summary.questionCount || 0} Questions</span></div>
-            <div class="review-summary-line">
-                <span class="summary-correct">${questionStates.CORRECT || 0} correct</span>
-                <span>${questionStates.PARTIAL || 0} partial</span>
-                <span class="summary-problem">${(questionStates.INCORRECT || 0) + (questionStates.MISSING || 0)} issues</span>
-                <span>${questionStates.NEEDS_VERIFICATION || 0} verify</span>
-                <span>${summary.questionsWithSuggestions || 0} suggestions</span>
-            </div>
-            <div class="review-result-actions">
-                <button class="btn-secondary new-questions-btn">New Questions</button>
-                <button class="btn-primary review-notes-btn">Review Notes</button>
-            </div>`;
-        card.querySelector('.new-questions-btn').addEventListener('click', () => openNewQuestions(data.review));
-        card.querySelector('.review-notes-btn').addEventListener('click', () => openReviewNotes(data.review, data.title, id));
-        container.appendChild(card);
-    }
-}
-
-function switchResultsTab(event) {
-    updateTabSet('[data-results-tab]', event.currentTarget);
-    const review = event.currentTarget.dataset.resultsTab === 'review';
-    $("validationResultsPanel").classList.toggle('hidden', review);
-    $("reviewResultsPanel").classList.toggle('hidden', !review);
-}
-
-function openReviewNotes(review, title, assessmentId) {
-    activeReviewResult = review || {};
-    activeReviewAssessmentId = assessmentId;
-    activeReviewTitle = title || `Assessment ${assessmentId}`;
-    $("reviewNotesTitle").textContent = `${title || 'ACP'} Review Notes`;
-    $("reviewSearchInput").value = '';
-    $("reviewStateFilter").value = '';
-    renderActiveReviewAnalysis();
-    openModal($("reviewNotesModal"));
-}
-
-function closeReviewNotes() {
-    activeReviewResult = null;
-    activeReviewAssessmentId = null;
-    activeReviewTitle = null;
-    closeModal($("reviewNotesModal"));
-}
-
-function renderActiveReviewAnalysis() {
-    if (!activeReviewResult) return;
-    const query = $("reviewSearchInput").value.trim().toLowerCase();
-    const state = $("reviewStateFilter").value;
-    const filterFindings = findings => (findings || []).map(normalizeDisplayedFinding).filter(finding => {
-        if (state && finding.state !== state) return false;
-        if (!query) return true;
-        return JSON.stringify(finding).toLowerCase().includes(query);
-    });
-    const questionFindings = filterFindings(
-        activeReviewResult.questionAnalysis || activeReviewResult.questionWiseAnalysis || []
-    );
-    renderAnalysis($("questionAnalysisPanel"), questionFindings);
-    $("reviewMatchCount").textContent = `${questionFindings.length} finding${questionFindings.length === 1 ? '' : 's'}`;
-}
-
-function renderAnalysis(container, findings) {
-    container.innerHTML = findings.length ? '' : '<div class="empty-state">No analysis is available.</div>';
-    findings.map(normalizeDisplayedFinding).forEach(finding => {
-        const item = document.createElement('details');
-        item.className = 'analysis-item';
-        item.open = finding.state !== 'CORRECT' && finding.state !== 'NOT_APPLICABLE';
-        const hasTableAnswer = !!finding.table?.columns?.length;
-        const hasFormatAwareAnswer = hasTableAnswer || ['rich_text', 'yes_no'].includes(finding.answerFormat);
-        item.innerHTML = `
-            <summary class="analysis-heading"><span><strong>${escapeHtml(finding.id)}</strong>${finding.name ? `<span class="analysis-title">${escapeHtml(finding.name)}</span>` : ''}</span><span class="review-state state-${String(finding.state).toLowerCase()}">${escapeHtml(finding.state)}</span></summary>
-            <div class="analysis-body">
-                ${renderQuestionEvidence(finding)}
-                ${renderAnalysisField('What is correct', finding.whatIsCorrect)}
-                ${renderAnalysisField('What is wrong or missing', finding.whatIsWrong)}
-                ${renderAnalysisField('Why it matters', finding.whyItMatters)}
-                ${renderAnalysisField('How to improve', finding.howToImprove)}
-                ${renderAnalysisField('Evidence', finding.evidence)}
-                <div class="suggestion-editor">
-                    <div class="suggestion-header"><strong>${hasFormatAwareAnswer ? 'Suggested corrected answer' : 'Suggested answer'}</strong><button class="icon-btn small-icon-btn copy-suggestion-btn" title="Copy suggested answer" aria-label="Copy suggested answer">⧉</button></div>
-                    ${hasTableAnswer ? `<div class="suggested-table-host">${renderSuggestedTablePanel(finding)}</div>` : ''}
-                    ${finding.answerFormat === 'yes_no' ? `<div class="suggested-option-host">${renderSuggestedOption(finding.suggestedOption)}</div>` : ''}
-                    ${hasTableAnswer ? '<details class="suggestion-narrative"><summary>Suggested narrative / fallback text</summary>' : ''}
-                    <textarea class="suggestion-text input" rows="6" aria-label="Suggested answer" placeholder="No suggestion was generated.">${escapeHtml(finding.suggestedText || '')}</textarea>
-                    ${hasTableAnswer ? '</details>' : ''}
-                    <div class="fine-tune-row">
-                        <input class="fine-tune-input input" type="text" aria-label="Fine-tune instruction" placeholder="Describe how to fine-tune this answer...">
-                        <button class="btn-secondary fine-tune-btn">Fine-tune</button>
-                    </div>
-                    <div class="fine-tune-status settings-muted" aria-live="polite"></div>
-                </div>
-                ${renderAnalysisField('Questions for the application team', finding.questionsForApplicationTeam)}
-                <div class="analysis-meta">Confidence: ${Math.round((Number(finding.confidence) || 0) * 100)}%${finding.requiresHumanVerification ? ' | Human verification required' : ''}${finding.audit?.verified ? ' | Auditor verified' : finding.audit?.error ? ' | Auditor unavailable' : ''}</div>
-            </div>`;
-        const suggestion = item.querySelector('.suggestion-text');
-        suggestion.addEventListener('change', async () => {
-            finding.suggestedText = suggestion.value;
-            await persistActiveReview();
-        });
-        item.querySelector('.copy-suggestion-btn').addEventListener('click', event => copySuggestedAnswer(
-            serializeSuggestedAnswer(finding, suggestion.value),
-            event.currentTarget
-        ));
-        item.querySelector('.fine-tune-btn').addEventListener('click', () => fineTuneFinding(finding, item));
-        container.appendChild(item);
-    });
-}
-
-function normalizeDisplayedFinding(finding) {
-    const state = String(finding?.state || 'NEEDS_VERIFICATION').toUpperCase();
-    const normalized = {
-        id: finding?.id || finding?.questionId || finding?.checkpointId || 'Unknown',
-        name: finding?.name || finding?.questionText || finding?.checkpointName || '',
-        state,
-        whatIsCorrect: finding?.whatIsCorrect ?? finding?.what_is_correct ?? [],
-        whatIsWrong: finding?.whatIsWrong ?? finding?.what_is_wrong ?? [],
-        whyItMatters: finding?.whyItMatters ?? finding?.why_it_matters ?? '',
-        howToImprove: finding?.howToImprove ?? finding?.how_to_improve ?? [],
-        suggestedText: finding?.suggestedText ?? finding?.suggested_text ?? '',
-        suggestedTable: finding?.suggestedTable ?? finding?.suggested_table ?? null,
-        suggestedOption: finding?.suggestedOption ?? finding?.suggested_option ?? null,
-        answerFormat: finding?.answerFormat ?? finding?.answer_format ?? null,
-        requiresHumanVerification: finding?.requiresHumanVerification ?? finding?.requires_human_verification ?? true,
-        questionsForApplicationTeam: finding?.questionsForApplicationTeam ?? finding?.questions_for_application_team ?? []
-    };
-    if (finding && typeof finding === 'object') {
-        Object.assign(finding, normalized);
-        return finding;
-    }
-    return normalized;
-}
-
-function renderQuestionEvidence(finding) {
-    if (!finding.questionType && !finding.table && finding.answered === undefined) return '';
-    const selected = (finding.selectedOptions || []).flatMap(option => [option.value, option.additionalText]).filter(Boolean);
-    const answer = finding.answerText || selected.join('\n');
-    return `
-        <div class="question-evidence">
-            <div class="question-evidence-meta"><span>${escapeHtml(finding.group || 'General')}</span><span>${escapeHtml(finding.questionType || 'Unknown type')}</span><span>${finding.answered ? 'Answered' : 'No recorded answer'}</span></div>
-            <div class="answer-comparison-card original-answer-card">
-                <div class="answer-comparison-heading"><strong>Original CAIRO answer</strong>${finding.table ? '<span>Table view</span>' : ''}</div>
-                ${finding.table
-                    ? `<div class="original-table-host">${renderComparisonTable(finding.table, finding.suggestedTable, 'original')}</div>`
-                    : finding.answerFormat === 'yes_no'
-                        ? `<div class="current-answer option-answer"><span class="answer-option-badge original-option">${escapeHtml(answer || 'No answer recorded.')}</span></div>`
-                        : `<div class="current-answer rich-text-answer"><p>${escapeHtml(answer || 'No answer recorded.')}</p></div>`}
-            </div>
-        </div>`;
-}
-
-function renderSuggestedOption(option) {
-    const normalized = String(option || 'NEEDS_VERIFICATION').toUpperCase();
-    const label = normalized === 'NEEDS_VERIFICATION' ? 'Needs verification' : normalized === 'YES' ? 'Yes' : 'No';
-    return `<div class="option-answer"><span class="answer-option-badge suggested-option option-${normalized.toLowerCase()}">${label}</span></div>`;
-}
-
-function renderSuggestedTablePanel(finding) {
-    if (!finding.suggestedTable?.rows?.length) {
-        return '<div class="structured-suggestion-empty">No structured table was returned. Use Fine-tune to ask BCAI to regenerate the complete ACP-AR1 table, or review the fallback narrative below.</div>';
-    }
-    return `
-        <div class="table-change-legend" aria-label="Table change legend">
-            <span><i class="legend-swatch changed"></i>Changed</span>
-            <span><i class="legend-swatch added"></i>New row</span>
-            <span><i class="legend-swatch unchanged"></i>Unchanged</span>
-        </div>
-        ${renderComparisonTable(finding.suggestedTable, finding.table, 'suggested')}`;
-}
-
-function renderComparisonTable(table, comparisonTable, side) {
-    if (!table?.columns?.length) return '';
-    const rows = table.rows || [];
-    const comparisonRows = comparisonTable?.rows || [];
-    const caption = side === 'suggested' ? 'Suggested corrected ACP table' : 'Original CAIRO ACP table';
-    return `<div class="evidence-table-wrap"><table class="evidence-table comparison-table"><caption class="visually-hidden">${caption}</caption><thead><tr><th class="row-number-column">Row</th>${table.columns.map(column => `<th>${escapeHtml(column.label)}</th>`).join('')}</tr></thead><tbody>${rows.map((row, rowIndex) => {
-        const comparisonRow = findComparisonRow(row, rowIndex, comparisonRows);
-        const rowClass = !comparisonRow ? (side === 'suggested' ? 'table-row-added' : 'table-row-removed') : '';
-        return `<tr class="${rowClass}"><th class="row-number-column" scope="row">${escapeHtml(String(row.rowGroupNumber ?? rowIndex + 1))}</th>${table.columns.map(column => {
-            const value = getTableCellText(row, column.key);
-            const comparisonValue = comparisonRow ? getTableCellText(comparisonRow, column.key) : '';
-            const changed = comparisonRow && normalizeCellText(value) !== normalizeCellText(comparisonValue);
-            const cellClass = changed ? 'table-cell-changed' : comparisonRow ? 'table-cell-unchanged' : '';
-            return `<td class="${cellClass}">${escapeHtml(value || '—')}</td>`;
-        }).join('')}</tr>`;
-    }).join('')}</tbody></table></div>`;
-}
-
-function findComparisonRow(row, index, rows) {
-    const group = String(row?.rowGroupNumber ?? '');
-    return rows.find(candidate => String(candidate?.rowGroupNumber ?? '') === group) || rows[index] || null;
-}
-
-function getTableCellText(row, key) {
-    const cell = row?.cells?.find(candidate => String(candidate?.key) === String(key));
-    return (cell?.values || []).map(value => typeof value === 'object' ? value?.value : value).filter(Boolean).join(', ');
-}
-
-function normalizeCellText(value) {
-    return String(value || '').trim().replace(/\s+/g, ' ').toLowerCase();
-}
-
-function serializeSuggestedAnswer(finding, fallbackText) {
-    const table = finding.suggestedTable;
-    if (!table?.columns?.length || !table?.rows?.length) {
-        return finding.suggestedOption
-            ? [finding.suggestedOption, fallbackText].filter(Boolean).join('\n')
-            : fallbackText;
-    }
-    const header = table.columns.map(column => column.label).join('\t');
-    const rows = table.rows.map(row => table.columns.map(column => getTableCellText(row, column.key)).join('\t'));
-    return [header, ...rows].join('\n');
-}
-
-async function copySuggestedAnswer(text, button) {
-    if (!text.trim()) return showNotice('There is no suggested answer to copy.');
-    try {
-        await navigator.clipboard.writeText(text);
-        const original = button.textContent;
-        button.textContent = '✓';
-        setTimeout(() => { button.textContent = original; }, 1200);
-    } catch (error) {
-        showNotice(`Unable to copy the suggested answer: ${error.message}`, { persistent: true });
-    }
-}
-
-async function fineTuneFinding(finding, item) {
-    const input = item.querySelector('.fine-tune-input');
-    const button = item.querySelector('.fine-tune-btn');
-    const status = item.querySelector('.fine-tune-status');
-    const instruction = input.value.trim();
-    if (!instruction) {
-        status.textContent = 'Enter a short fine-tune instruction.';
-        return;
-    }
-
-    button.disabled = true;
-    input.disabled = true;
-    status.textContent = 'Fine-tuning with BCAI...';
-    try {
-        const response = await chrome.runtime.sendMessage({
-            action: 'FINE_TUNE_REVIEW_SUGGESTION',
-            finding,
-            instruction
-        });
-        if (!response?.success) throw new Error(response?.error || 'Fine-tuning failed.');
-        finding.suggestedText = response.suggestedText;
-        finding.suggestedOption = response.suggestedOption || finding.suggestedOption || null;
-        finding.suggestedTable = response.suggestedTable || finding.suggestedTable || null;
-        item.querySelector('.suggestion-text').value = response.suggestedText;
-        const suggestedTableHost = item.querySelector('.suggested-table-host');
-        if (suggestedTableHost) suggestedTableHost.innerHTML = renderSuggestedTablePanel(finding);
-        const suggestedOptionHost = item.querySelector('.suggested-option-host');
-        if (suggestedOptionHost) suggestedOptionHost.innerHTML = renderSuggestedOption(finding.suggestedOption);
-        const originalTableHost = item.querySelector('.original-table-host');
-        if (originalTableHost) originalTableHost.innerHTML = renderComparisonTable(finding.table, finding.suggestedTable, 'original');
-        input.value = '';
-        status.textContent = response.changeSummary || 'Suggested answer updated.';
-        await persistActiveReview();
-    } catch (error) {
-        status.textContent = `Unable to fine-tune: ${error.message}`;
-    } finally {
-        button.disabled = automationBusy;
-        input.disabled = false;
-    }
-}
-
-async function persistActiveReview() {
-    if (!activeReviewAssessmentId || !activeReviewResult) return;
-    await saveReviewResult(activeReviewAssessmentId, activeReviewResult, activeReviewTitle);
-}
-
-function renderAnalysisField(label, value) {
-    const values = Array.isArray(value) ? value : value ? [value] : [];
-    if (!values.length) return '';
-    return `<div class="analysis-field"><strong>${label}</strong>${values.map(item => `<p>${escapeHtml(typeof item === 'string' ? item : JSON.stringify(item))}</p>`).join('')}</div>`;
-}
-
-function openNewQuestions(review) {
-    const questions = review?.newQuestions || [];
-    $("newQuestionsContent").innerHTML = questions.length
-        ? questions.map(question => `<div class="analysis-item">${escapeHtml(typeof question === 'string' ? question : JSON.stringify(question))}</div>`).join('')
-        : 'New-question generation is reserved for the next implementation phase.';
-    openModal($("newQuestionsModal"));
-}
-
 // ==========================================
 // ACTIONS
 // ==========================================
@@ -844,7 +527,6 @@ async function startValidation() {
 
     $("progressContainer").classList.remove("hidden");
     $("validateBtn").classList.add("hidden");
-    $("reviewBtn").classList.add("hidden");
     $("cancelValidationBtn").classList.remove("hidden");
     resetProgressDisplay(selected.length);
     $("resultsContainer").innerHTML = "";
@@ -852,48 +534,22 @@ async function startValidation() {
     try {
         const response = await chrome.runtime.sendMessage({ action: "START_VALIDATION", assessments: selected });
         if (!response?.started) throw new Error(response?.error || 'Validation did not start.');
-        startPolling('validation');
+        startPolling();
     } catch (error) {
-        restoreOperationControls('validation');
+        restoreOperationControls();
         $("progressContainer").classList.add('hidden');
         showNotice(`Unable to start validation: ${error.message}`, { persistent: true });
     }
 }
 
-async function startReview() {
-    const selected = allAcps.filter(x => selectedIds.includes(String(x.assessmentId)));
-    if (!selected.length) return showNotice("Select at least one assessment before reviewing.");
-    if (!await verifyPrerequisitesForOperation('review')) return;
-    setAutomationBusy(true);
-    $("progressContainer").classList.remove("hidden");
-    $("validateBtn").classList.add("hidden");
-    $("reviewBtn").classList.add("hidden");
-    $("cancelReviewBtn").classList.remove("hidden");
-    resetProgressDisplay(selected.length);
-    $("reviewResultsContainer").innerHTML = '<div class="empty-state">Review is running...</div>';
-    try {
-        const response = await chrome.runtime.sendMessage({ action: "START_REVIEW", assessments: selected });
-        if (!response?.started) throw new Error(response?.error || 'Review did not start.');
-        startPolling('review');
-    } catch (error) {
-        restoreOperationControls('review');
-        $("progressContainer").classList.add('hidden');
-        showNotice(`Unable to start review: ${error.message}`, { persistent: true });
-    }
-}
-
 async function cancelValidation() {
-    await requestCancellation('validation');
+    await requestCancellation();
 }
 
-async function cancelReview() {
-    await requestCancellation('review');
-}
-
-async function requestCancellation(mode) {
-    const button = $(mode === 'review' ? "cancelReviewBtn" : "cancelValidationBtn");
+async function requestCancellation() {
+    const button = $("cancelValidationBtn");
     try {
-        await chrome.runtime.sendMessage({ action: mode === 'review' ? "CANCEL_REVIEW" : "CANCEL_VALIDATION" });
+        await chrome.runtime.sendMessage({ action: "CANCEL_VALIDATION" });
         button.textContent = "Cancelling...";
         button.disabled = true;
     } catch (error) {
@@ -901,14 +557,13 @@ async function requestCancellation(mode) {
     }
 }
 
-function startPolling(mode = 'validation') {
+function startPolling() {
     if (pollInterval) clearInterval(pollInterval);
 
     pollInterval = setInterval(async () => {
-        const prefix = mode === 'review' ? 'review' : 'validation';
-        const state = await chrome.storage.local.get([`${prefix}Progress`, `${prefix}Complete`, `${prefix}Error`, `${prefix}Cancelled`]);
+        const state = await chrome.storage.local.get(['validationProgress', 'validationComplete', 'validationError', 'validationCancelled']);
 
-        const progress = state[`${prefix}Progress`];
+        const progress = state.validationProgress;
         if (progress) {
             const total = progress.total || 1;
             const completed = progress.completed || 0;
@@ -920,73 +575,53 @@ function startPolling(mode = 'validation') {
             renderProgressContext(progress);
         }
 
-        if (state[`${prefix}Complete`]) {
+        if (state.validationComplete) {
             clearInterval(pollInterval);
             pollInterval = null;
 
             // Restore buttons
-            restoreOperationControls(mode);
+            restoreOperationControls();
 
-            if (state[`${prefix}Cancelled`]) {
-                $("progressText").textContent = `${mode === 'review' ? 'Review' : 'Validation'} cancelled.`;
-            } else if (state[`${prefix}Error`]) {
-                $("progressText").textContent = `Error: ${state[`${prefix}Error`]}`;
+            if (state.validationCancelled) {
+                $("progressText").textContent = 'Validation cancelled.';
+            } else if (state.validationError) {
+                $("progressText").textContent = `Error: ${state.validationError}`;
             } else {
-                $("progressText").textContent = `${mode === 'review' ? 'Review' : 'Validation'} complete!`;
+                $("progressText").textContent = 'Validation complete!';
                 $("progressFill").style.width = "100%";
                 $("progressBar").setAttribute('aria-valuenow', '100');
             }
 
             // Load and render the results
-            if (mode === 'review') renderReviewResults(await getAllReviewResults());
-            else renderResults(await getAllResults());
-            activateResultsTab(mode);
+            renderResults(await getAllResults());
         }
     }, 800);
 }
 
-function restoreOperationControls(mode) {
+function restoreOperationControls() {
     $("validateBtn").classList.remove("hidden");
-    $("reviewBtn").classList.remove("hidden");
     setAutomationBusy(false);
-    const cancelButton = $(mode === 'review' ? "cancelReviewBtn" : "cancelValidationBtn");
+    const cancelButton = $("cancelValidationBtn");
     cancelButton.classList.add("hidden");
-    cancelButton.textContent = mode === 'review' ? "Cancel Review" : "Cancel Validation";
+    cancelButton.textContent = "Cancel Validation";
     cancelButton.disabled = false;
 }
 
-function activateResultsTab(mode) {
-    const review = mode === 'review';
-    const button = $(review ? 'reviewResultsTab' : 'validationResultsTab');
-    updateTabSet('[data-results-tab]', button);
-    $("validationResultsPanel").classList.toggle('hidden', review);
-    $("reviewResultsPanel").classList.toggle('hidden', !review);
-}
-
 async function resumeActiveOperation() {
-    const state = await chrome.storage.local.get([
-        'validationProgress', 'validationComplete',
-        'reviewProgress', 'reviewComplete'
-    ]);
-    const mode = state.reviewProgress && state.reviewComplete === false
-        ? 'review'
-        : state.validationProgress && state.validationComplete === false
-            ? 'validation'
-            : null;
-    if (!mode) return;
+    const state = await chrome.storage.local.get(['validationProgress', 'validationComplete']);
+    if (!state.validationProgress || state.validationComplete !== false) return;
 
-    const progress = state[`${mode}Progress`];
+    const progress = state.validationProgress;
     $("progressContainer").classList.remove('hidden');
     $("validateBtn").classList.add('hidden');
-    $("reviewBtn").classList.add('hidden');
     setAutomationBusy(true);
-    $(mode === 'review' ? "cancelReviewBtn" : "cancelValidationBtn").classList.remove('hidden');
+    $("cancelValidationBtn").classList.remove('hidden');
     $("progressText").textContent = progress.current || 'Working...';
     const pct = Math.round(((progress.completed || 0) / (progress.total || 1)) * 100);
     $("progressFill").style.width = `${pct}%`;
     $("progressBar").setAttribute('aria-valuenow', String(pct));
     renderProgressContext(progress);
-    startPolling(mode);
+    startPolling();
 }
 
 function resetProgressDisplay(total) {
@@ -1006,7 +641,7 @@ function renderProgressContext(progress) {
         ? (elapsedMs / completed) * (total - completed)
         : completed >= total && total > 0 ? 0 : null;
 
-    $("progressCount").textContent = `${completed} of ${total} ${progress.mode === 'review' ? 'reviewed' : 'validated'}`;
+    $("progressCount").textContent = `${completed} of ${total} validated`;
     $("progressElapsed").textContent = `Time elapsed: ${formatDuration(elapsedMs)}`;
     $("progressRemaining").textContent = `Estimated remaining: ${remainingMs == null ? 'Calculating...' : formatDuration(remainingMs)}`;
 }
@@ -1023,7 +658,6 @@ async function loadExistingResults() {
     if (Object.keys(results).length > 0) {
         renderResults(results);
     }
-    renderReviewResults(await getAllReviewResults());
 }
 
 // ==========================================
@@ -1090,13 +724,6 @@ async function clearValidationResultsAndUI() {
     showNotice('Validation results cleared.');
 }
 
-async function clearReviewResultsAndUI() {
-    await clearReviewResults();
-    $("reviewResultsContainer").innerHTML = '<div class="empty-state">No review results yet.</div>';
-    $("clearReviewResultsBtn").classList.add("hidden");
-    showNotice('Review results cleared.');
-}
-
 function showNotice(message, { persistent = false } = {}) {
     const notice = $("uiNotice");
     notice.textContent = message;
@@ -1111,35 +738,11 @@ function setAutomationBusy(busy) {
         'refreshBtn', 'checkPrereqBtn', 'selectAllBtn', 'clearSelectionBtn',
         'searchInput', 'regexMode', 'dateFilterField', 'assessmentStatusFilter',
         'ownerSearchInput', 'dateStartFilter', 'dateEndFilter', 'clearFiltersBtn',
-        'clearValidationResultsBtn', 'clearReviewResultsBtn'
+        'clearValidationResultsBtn'
     ];
     controlIds.forEach(id => { const element = $(id); if (element) element.disabled = busy; });
     document.querySelectorAll('.assessment-checkbox').forEach(checkbox => { checkbox.disabled = busy; });
     if (!busy) updateSelectedCount();
-}
-
-function updateTabSet(selector, activeButton) {
-    document.querySelectorAll(selector).forEach(button => {
-        const active = button === activeButton;
-        button.classList.toggle('active', active);
-        button.setAttribute('aria-selected', String(active));
-        button.tabIndex = active ? 0 : -1;
-    });
-}
-
-function handleTabKeydown(event) {
-    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
-    const tabs = [...event.currentTarget.querySelectorAll('[role="tab"]')];
-    const currentIndex = tabs.indexOf(document.activeElement);
-    if (currentIndex < 0) return;
-    event.preventDefault();
-    let nextIndex = currentIndex;
-    if (event.key === 'ArrowRight') nextIndex = (currentIndex + 1) % tabs.length;
-    if (event.key === 'ArrowLeft') nextIndex = (currentIndex - 1 + tabs.length) % tabs.length;
-    if (event.key === 'Home') nextIndex = 0;
-    if (event.key === 'End') nextIndex = tabs.length - 1;
-    tabs[nextIndex].focus();
-    tabs[nextIndex].click();
 }
 
 function openModal(modal) {
@@ -1161,8 +764,7 @@ function handleGlobalKeydown(event) {
     if (!modal) return;
     if (event.key === 'Escape') {
         event.preventDefault();
-        if (modal === $("reviewNotesModal")) closeReviewNotes();
-        else if (modal === $("settingsModal")) closeSettingsModal();
+        if (modal === $("settingsModal")) closeSettingsModal();
         else closeModal(modal);
         return;
     }

@@ -8,7 +8,7 @@ import { getAllCheckpoints } from './checkpoint.js';
 import { sendPrompt, extractJson, createConversationSession } from '../ai/aiService.js';
 import { logger, sleep } from '../utils/utils.js';
 import { CONFIG } from '../utils/constants.js';
-import { ACP_REVIEW_GUIDANCE } from '../knowledge/acpReviewGuidance.js';
+import { ACP_VALIDATION_GUIDANCE } from '../knowledge/acpValidationGuidance.js';
 import { CHECKPOINT_EVIDENCE } from '../knowledge/checkpointEvidenceMap.js';
 
 // ============================================================
@@ -44,7 +44,7 @@ export async function runAiPrompt(checkpoint, context, checkpointPrompt, options
     const normalizedEvidence = (CHECKPOINT_EVIDENCE[checkpoint.id] || [])
         .map(id => context.normalizedQuestionMap?.get(String(id)))
         .filter(Boolean);
-    const prompt = `${checkpointPrompt}\n\nACP POLICY AND AUTHORING GUIDANCE:\n${ACP_REVIEW_GUIDANCE}\n\nNORMALIZED CHECKPOINT EVIDENCE:\n${JSON.stringify(normalizedEvidence)}\n\nReturn JSON only with status (PASS, FAIL, NA, or REVIEW), reason, evidence, recommendation, confidence, and requiresHumanVerification. Use REVIEW rather than PASS when authoritative external evidence is unavailable.`;
+    const prompt = `${checkpointPrompt}\n\nACP POLICY AND VALIDATION GUIDANCE:\n${ACP_VALIDATION_GUIDANCE}\n\nNORMALIZED CHECKPOINT EVIDENCE:\n${JSON.stringify(normalizedEvidence)}\n\nReturn JSON only with status (PASS, FAIL, NA, or REVIEW), reason, evidence, recommendation, confidence, and requiresHumanVerification. Use REVIEW rather than PASS when authoritative external evidence is unavailable.`;
 
     let rawResponse = '';
     let parsed = null;
